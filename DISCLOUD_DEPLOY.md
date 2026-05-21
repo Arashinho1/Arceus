@@ -54,6 +54,8 @@ O `build/` fica fora do Git e nao precisa entrar no zip quando usamos build remo
 MAIN=index.js
 BUILD=npm run discloud:build
 START=npm run discloud:start
+VLAN=true
+HOSTNAME=arceusbot
 ```
 
 Assim a Discloud valida um arquivo que ja existe no zip (`index.js`), roda o build, e so depois inicia o bootstrap, que carrega `build/index.js`.
@@ -80,7 +82,7 @@ confira se o `discloud.config` que foi enviado ainda esta antigo. Ele deve ter `
 
 ## Variaveis do .env
 
-Para upload direto, o `.env` real deve ir junto no zip, na raiz:
+Para upload direto, o `.env` real pode ir junto no zip, na raiz:
 
 ```env
 DISCORD_TOKEN="token-do-bot"
@@ -90,6 +92,8 @@ NODE_ENV="production"
 ```
 
 Nao envie `.env` para GitHub. Ele esta protegido no `.gitignore`.
+
+Importante: o `BUILD` da Discloud pode rodar sem `.env`. Por isso o build do projeto nao depende do banco. O `DATABASE_URL` so precisa existir no `START`, quando roda `prisma db push`.
 
 Se estiver usando GitHub Integration ou algum fluxo que nao envia `.env`, cadastre estas variaveis direto no painel/integração da Discloud:
 
@@ -106,7 +110,7 @@ O erro abaixo significa que a Discloud nao recebeu `DATABASE_URL`:
 Environment variable not found: DATABASE_URL
 ```
 
-Nesse caso, o problema nao e mais o arquivo principal. E a variavel de banco ausente no ambiente da Discloud.
+Nesse caso, o problema nao e mais o arquivo principal. E a variavel de banco ausente no ambiente da Discloud. Se voce usa GitHub Integration, cadastre `DATABASE_URL` nas variaveis do app do bot, porque o `.env` local nao vai junto no Git.
 
 ## Usando banco PostgreSQL por template da Discloud
 
@@ -124,6 +128,17 @@ O formato esperado pelo Prisma e:
 DATABASE_URL="postgresql://usuario:senha@host:5432/banco?schema=public"
 ```
 
+No seu banco da Discloud com hostname privado `arceusdb`, usuario `arceus` e database `arceus`, a URL fica neste formato:
+
+```env
+DATABASE_URL="postgresql://arceus:SENHA_DO_BANCO@arceusdb:5432/arceus?schema=public"
+```
+
+Repare em duas coisas:
+
+- o host e `arceusdb`, igual ao hostname da VLAN do banco;
+- o nome do banco no final tambem deve ser `arceus`, nao `postgres`, se `POSTGRES_DB=arceus`.
+
 Se o painel do template mostrar dados separados, monte a URL assim:
 
 ```text
@@ -137,6 +152,12 @@ DATABASE_URL="postgresql://arceus:minha_senha@postgres.discloud.app:5432/arceus?
 ```
 
 Nao use `localhost` na Discloud. Dentro da Discloud, `localhost` seria o proprio container do bot, nao o banco gerenciado.
+
+Se usar hostname privado/VLAN, o app do bot tambem precisa ter `VLAN=true` no `discloud.config`. Sem isso, o Prisma pode retornar:
+
+```text
+P1001: Can't reach database server at `arceusdb:5432`
+```
 
 Depois de configurar `DATABASE_URL`, envie/commit o bot novamente. No primeiro start, o comando `npm run discloud:start` roda:
 

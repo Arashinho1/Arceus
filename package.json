@@ -13,7 +13,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "discloud:build": "prisma generate && tsc -p tsconfig.json",
     "discloud:check": "node scripts/check-discloud.mjs",
-    "discloud:start": "prisma db push && prisma db seed && node index.js"
+    "discloud:start": "node scripts/require-env.mjs && prisma db push && prisma db seed && node index.js"
   },
   "engines": {
     "node": ">=20"

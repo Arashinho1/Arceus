@@ -6,28 +6,27 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node build/index.js",
+    "start": "node index.js",
     "lint": "tsc -p tsconfig.json --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "discloud:build": "prisma generate && tsc -p tsconfig.json",
     "discloud:check": "node scripts/check-discloud.mjs",
-    "discloud:start": "prisma db push && prisma db seed && node build/index.js"
+    "discloud:start": "prisma db push && prisma db seed && node index.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
+    "@types/node": "^22.0.0",
     "discord.js": "^14.0.0",
     "dotenv": "^16.0.0",
-    "ioredis": "^5.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
+    "ioredis": "^5.0.0",
     "prisma": "^6.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
-  }
+  },
+  "devDependencies": {}
 }

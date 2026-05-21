@@ -11,7 +11,7 @@ package.json
 package-lock.json
 tsconfig.json
 prisma.config.ts
-build/index.js
+index.js
 src/
 prisma/
 ```
@@ -21,7 +21,7 @@ Nao pode ficar assim:
 ```text
 Arceus/
   discloud.config
-  build/index.js
+  index.js
 ```
 
 Se o zip tiver uma pasta extra por cima, a Discloud pode dizer que o `discloud.config` ou o arquivo principal nao existe.
@@ -48,11 +48,15 @@ npm run discloud:check
 
 Essa checagem confirma se o arquivo `MAIN` existe e se a `.discloudignore` nao esta escondendo ele.
 
-O `build/` fica fora do Git, mas precisa entrar no zip da Discloud porque `discloud.config` usa:
+O `build/` fica fora do Git e nao precisa entrar no zip quando usamos build remoto da Discloud. O `discloud.config` usa:
 
 ```text
-MAIN=build/index.js
+MAIN=index.js
+BUILD=npm run discloud:build
+START=npm run discloud:start
 ```
+
+Assim a Discloud valida um arquivo que ja existe no zip (`index.js`), roda o build, e so depois inicia o bootstrap, que carrega `build/index.js`.
 
 ## O que nao enviar
 
@@ -66,11 +70,13 @@ docs/
 *.log
 ```
 
-Nao coloque `build/` na `.discloudignore`, senao a Discloud vai retornar:
+Se a Discloud retornar isto:
 
 ```text
 ERRO: O arquivo principal build/index.js nao foi encontrado dentro do zip.
 ```
+
+confira se o `discloud.config` que foi enviado ainda esta antigo. Ele deve ter `MAIN=index.js`, nao `MAIN=build/index.js`.
 
 ## Variaveis do .env
 
@@ -99,4 +105,4 @@ Start:
 npm run discloud:start
 ```
 
-O start roda `prisma db push`, roda o seed e inicia `node build/index.js`.
+O start roda `prisma db push`, roda o seed e inicia `node index.js`. Esse bootstrap carrega `build/index.js`, que foi criado pelo `BUILD`.

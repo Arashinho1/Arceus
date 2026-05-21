@@ -7,6 +7,9 @@ const species = [
     dexNumber: 1,
     slug: "bulbasaur",
     name: "Bulbasaur",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png",
+    shinySpriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/1.png",
+    artworkUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png",
     types: ["GRASS", "POISON"],
     baseCatchRate: 45,
     genderRatioFemale: 0.125,
@@ -26,6 +29,9 @@ const species = [
     dexNumber: 4,
     slug: "charmander",
     name: "Charmander",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png",
+    shinySpriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/4.png",
+    artworkUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/4.png",
     types: ["FIRE"],
     baseCatchRate: 45,
     genderRatioFemale: 0.125,
@@ -45,6 +51,9 @@ const species = [
     dexNumber: 7,
     slug: "squirtle",
     name: "Squirtle",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png",
+    shinySpriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/7.png",
+    artworkUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/7.png",
     types: ["WATER"],
     baseCatchRate: 45,
     genderRatioFemale: 0.125,
@@ -64,6 +73,9 @@ const species = [
     dexNumber: 16,
     slug: "pidgey",
     name: "Pidgey",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/16.png",
+    shinySpriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/16.png",
+    artworkUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/16.png",
     types: ["NORMAL", "FLYING"],
     baseCatchRate: 255,
     genderRatioFemale: 0.5,
@@ -82,6 +94,9 @@ const species = [
     dexNumber: 19,
     slug: "rattata",
     name: "Rattata",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/19.png",
+    shinySpriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/19.png",
+    artworkUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/19.png",
     types: ["NORMAL"],
     baseCatchRate: 255,
     genderRatioFemale: 0.5,
@@ -100,6 +115,9 @@ const species = [
     dexNumber: 25,
     slug: "pikachu",
     name: "Pikachu",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png",
+    shinySpriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/25.png",
+    artworkUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png",
     types: ["ELECTRIC"],
     baseCatchRate: 190,
     genderRatioFemale: 0.5,
@@ -122,36 +140,42 @@ const items = [
     slug: "poke_ball",
     name: "Poke Ball",
     category: ItemCategory.POKE_BALL,
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png",
     data: { captureBonus: 1 }
   },
   {
     slug: "great_ball",
     name: "Great Ball",
     category: ItemCategory.POKE_BALL,
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png",
     data: { captureBonus: 1.5 }
   },
   {
     slug: "ultra_ball",
     name: "Ultra Ball",
     category: ItemCategory.POKE_BALL,
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png",
     data: { captureBonus: 2 }
   },
   {
     slug: "potion",
     name: "Potion",
     category: ItemCategory.HEALING,
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/potion.png",
     data: { healHp: 20 }
   },
   {
     slug: "rare_candy",
     name: "Rare Candy",
     category: ItemCategory.XP,
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rare-candy.png",
     data: { levelGain: 1 }
   },
   {
     slug: "thunder_stone",
     name: "Thunder Stone",
     category: ItemCategory.EVOLUTION,
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/thunder-stone.png",
     data: { evolutionType: "stone" }
   }
 ];

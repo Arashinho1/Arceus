@@ -2,9 +2,15 @@ import { EncounterState, type PrismaClient } from "@prisma/client";
 import type { Interaction } from "discord.js";
 import type { AppServices } from "../../services/createServices.js";
 import { buildEncounterDetailsContent } from "../../ui/embeds/spawnEmbed.js";
+import { handleTrainerMenuInteraction, isTrainerMenuInteraction } from "../../ui/menu/trainerMenu.js";
 
 export function buildInteractionCreateHandler(services: AppServices) {
   return async function onInteractionCreate(interaction: Interaction): Promise<void> {
+    if (isTrainerMenuInteraction(interaction) && (interaction.isButton() || interaction.isStringSelectMenu())) {
+      await handleTrainerMenuInteraction(interaction, services);
+      return;
+    }
+
     if (!interaction.isButton()) {
       return;
     }

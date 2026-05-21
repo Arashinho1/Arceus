@@ -89,6 +89,9 @@ model PokemonSpecies {
   genderRatioFemale Float?
   abilities         String[] @default([])
   hiddenAbility     String?
+  spriteUrl         String?
+  shinySpriteUrl    String?
+  artworkUrl        String?
 
   baseStats    Json @default("{}")
   evYield      Json @default("{}")
@@ -204,6 +207,7 @@ model Item {
   slug     String       @unique
   name     String
   category ItemCategory
+  spriteUrl String?
   data     Json         @default("{}")
 
   createdAt DateTime @default(now())

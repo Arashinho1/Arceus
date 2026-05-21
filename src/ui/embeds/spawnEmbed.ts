@@ -10,8 +10,9 @@ import { STAT_KEYS } from "../../domain/pokemon/types.js";
 
 export function buildSpawnEmbed(encounter: Encounter, species: PokemonSpecies): EmbedBuilder {
   const shinyText = encounter.shiny ? " Shiny" : "";
+  const spriteUrl = encounter.shiny ? species.shinySpriteUrl ?? species.spriteUrl : species.spriteUrl;
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(encounter.shiny ? 0xf7d154 : 0x4caf50)
     .setTitle(`Um ${species.name}${shinyText} selvagem apareceu!`)
     .setDescription("Escolha uma acao antes que o encontro expire.")
@@ -25,6 +26,12 @@ export function buildSpawnEmbed(encounter: Encounter, species: PokemonSpecies): 
     )
     .setFooter({ text: `Encounter ${encounter.id}` })
     .setTimestamp(encounter.createdAt);
+
+  if (spriteUrl) {
+    embed.setThumbnail(spriteUrl);
+  }
+
+  return embed;
 }
 
 export function buildEncounterActionRow(

@@ -1,6 +1,7 @@
-import { PermissionFlagsBits } from "discord.js";
+import { EmbedBuilder, PermissionFlagsBits } from "discord.js";
 import type { PrefixCommand } from "./types.js";
 import type { AppServices } from "../../services/createServices.js";
+import { buildTrainerCardPayload, buildTrainerProfileFromMessage } from "../../ui/menu/trainerMenu.js";
 
 export function createCommandRegistry(services: AppServices): Map<string, PrefixCommand> {
   const commands: PrefixCommand[] = [
@@ -9,6 +10,14 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
       description: "Testa se o bot esta online.",
       async execute({ message }) {
         await message.reply("Pong.");
+      }
+    },
+    {
+      name: "menu",
+      aliases: ["cartao"],
+      description: "Mostra o cartao de treinador e a mochila.",
+      async execute({ message, services }) {
+        await message.reply(await buildTrainerCardPayload(services, buildTrainerProfileFromMessage(message)));
       }
     },
     {
@@ -31,11 +40,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
           return;
         }
 
-        await message.reply(
-          team
-            .map((pokemon) => `#${pokemon.teamSlot} ${pokemon.species.name} Lv.${pokemon.level} - ${pokemon.moves.join(", ")}`)
-            .join("\n")
-        );
+        await message.reply({ embeds: team.map((pokemon) => buildPlayerPokemonEmbed(pokemon, "TEAM")) });
       }
     },
     {
@@ -50,7 +55,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
         const boxed = await services.prisma.playerPokemon.findMany({
           where: { userId: user.id, isInTeam: false, isReleased: false },
           orderBy: [{ boxNumber: "asc" }, { boxSlot: "asc" }],
-          take: 15,
+          take: 10,
           include: { species: true }
         });
 
@@ -59,11 +64,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
           return;
         }
 
-        await message.reply(
-          boxed
-            .map((pokemon) => `Box ${pokemon.boxNumber}/${pokemon.boxSlot}: ${pokemon.species.name} Lv.${pokemon.level}`)
-            .join("\n")
-        );
+        await message.reply({ embeds: boxed.map((pokemon) => buildPlayerPokemonEmbed(pokemon, "BOX")) });
       }
     },
     {
@@ -87,7 +88,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
           return;
         }
 
-        await message.reply(inventory.map((entry) => `${entry.item.name}: ${entry.quantity}`).join("\n"));
+        await message.reply({ embeds: inventory.slice(0, 10).map(buildInventoryItemEmbed) });
       }
     },
     {
@@ -191,4 +192,60 @@ function parseChannelId(raw?: string): string | null {
 
   const mention = raw.match(/^<#(\d+)>$/);
   return mention?.[1] ?? (raw.match(/^\d+$/) ? raw : null);
+}
+
+type PlayerPokemonWithSpecies = Awaited<
+  ReturnType<AppServices["prisma"]["playerPokemon"]["findMany"]>
+>[number] & {
+  species: {
+    name: string;
+    types: string[];
+    spriteUrl: string | null;
+    shinySpriteUrl: string | null;
+    artworkUrl: string | null;
+  };
+};
+
+type InventoryWithItem = Awaited<ReturnType<AppServices["prisma"]["inventory"]["findMany"]>>[number] & {
+  item: {
+    name: string;
+    category: string;
+    spriteUrl: string | null;
+  };
+};
+
+function buildPlayerPokemonEmbed(pokemon: PlayerPokemonWithSpecies, location: "TEAM" | "BOX"): EmbedBuilder {
+  const titlePrefix = location === "TEAM" ? `#${pokemon.teamSlot ?? "?"}` : `Box ${pokemon.boxNumber}/${pokemon.boxSlot ?? "?"}`;
+  const spriteUrl = pokemon.shiny ? pokemon.species.shinySpriteUrl ?? pokemon.species.spriteUrl : pokemon.species.spriteUrl;
+  const embed = new EmbedBuilder()
+    .setColor(pokemon.shiny ? 0xf7d154 : 0x6aa6ff)
+    .setTitle(`${titlePrefix} - ${pokemon.species.name}${pokemon.shiny ? " Shiny" : ""}`)
+    .setDescription(`Lv.${pokemon.level} | ${pokemon.species.types.join(" / ") || "Sem tipo"}`)
+    .addFields(
+      { name: "HP", value: `${pokemon.currentHp}/${pokemon.maxHp}`, inline: true },
+      { name: "Nature", value: pokemon.nature, inline: true },
+      { name: "Ability", value: pokemon.ability, inline: true },
+      { name: "Moves", value: pokemon.moves.join(", ") || "Nenhum", inline: false }
+    )
+    .setFooter({ text: `ID ${pokemon.id}` });
+
+  if (spriteUrl) {
+    embed.setThumbnail(spriteUrl);
+  }
+
+  return embed;
+}
+
+function buildInventoryItemEmbed(entry: InventoryWithItem): EmbedBuilder {
+  const embed = new EmbedBuilder()
+    .setColor(0xffcc66)
+    .setTitle(entry.item.name)
+    .setDescription(`Quantidade: ${entry.quantity}`)
+    .addFields({ name: "Categoria", value: entry.item.category, inline: true });
+
+  if (entry.item.spriteUrl) {
+    embed.setThumbnail(entry.item.spriteUrl);
+  }
+
+  return embed;
 }

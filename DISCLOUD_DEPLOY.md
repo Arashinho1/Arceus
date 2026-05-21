@@ -183,6 +183,7 @@ P1001: Can't reach database server at `arceusdb:5432`
 Depois de configurar `DATABASE_URL`, envie/commit o bot novamente. No primeiro start, o comando `npm run discloud:start` roda:
 
 ```bash
+npm run discloud:build
 prisma db push
 prisma db seed
 node index.js
@@ -204,4 +205,4 @@ Start:
 npm run discloud:start
 ```
 
-O start roda `prisma db push`, roda o seed e inicia `node index.js`. Esse bootstrap carrega `build/index.js`, que foi criado pelo `BUILD`.
+O start tambem roda `npm run discloud:build` antes do Prisma. Isso evita o erro `build/index.js nao foi encontrado` caso a etapa `BUILD` da Discloud nao execute antes do `START`.

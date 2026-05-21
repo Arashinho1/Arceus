@@ -13,8 +13,8 @@ import {
   type StringSelectMenuInteraction,
   type WebhookMessageEditOptions
 } from "discord.js";
-import sharp from "sharp";
 import type { AppServices } from "../../services/createServices.js";
+import { renderItemCardWithPillow, renderTrainerCardWithPillow } from "./pillowRenderer.js";
 
 const MENU_SCOPE = "trainer-menu";
 const CARD_FILE_NAME = "trainer-card.png";
@@ -539,21 +539,32 @@ async function renderTrainerCardPng(input: {
   capturedCount: number;
   profile: TrainerMenuProfile;
 }): Promise<Buffer> {
-  const avatarDataUri = await fetchImageDataUri(input.profile.avatarUrl);
-  const teamImages = await Promise.all(
-    input.team.map((pokemon) =>
-      fetchImageDataUri(pokemon.shiny ? pokemon.species.shinySpriteUrl ?? pokemon.species.spriteUrl : pokemon.species.spriteUrl)
-    )
-  );
-
-  const svg = buildTrainerCardSvg(input, avatarDataUri, teamImages);
-  return sharp(Buffer.from(svg)).png().toBuffer();
+  return renderTrainerCardWithPillow({
+    trainer: {
+      name: input.profile.displayName,
+      money: input.user.coins,
+      pokedex: input.capturedCount,
+      avatarUrl: input.profile.avatarUrl
+    },
+    badges: input.user.badges,
+    team: input.team.map((pokemon) => ({
+      name: formatPokemonName(pokemon),
+      spriteUrl: pokemon.shiny ? pokemon.species.shinySpriteUrl ?? pokemon.species.spriteUrl : pokemon.species.spriteUrl
+    }))
+  });
 }
 
 async function renderItemCardPng(entry: InventoryEntry): Promise<Buffer> {
-  const spriteDataUri = await fetchImageDataUri(entry.item.spriteUrl);
-  const svg = buildItemCardSvg(entry, spriteDataUri);
-  return sharp(Buffer.from(svg)).png().toBuffer();
+  return renderItemCardWithPillow({
+    item: {
+      name: entry.item.name,
+      quantity: entry.quantity,
+      category: entry.item.category,
+      categoryLabel: formatItemCategory(entry.item.category),
+      spriteUrl: entry.item.spriteUrl,
+      description: describeItem(entry.item)
+    }
+  });
 }
 
 function buildTrainerCardSvg(

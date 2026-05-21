@@ -11,7 +11,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
-    "discloud:build": "prisma generate && tsc -p tsconfig.json",
+    "python:deps": "node scripts/ensure-pillow.mjs",
+    "discloud:build": "node scripts/ensure-pillow.mjs && prisma generate && tsc -p tsconfig.json",
     "discloud:check": "node scripts/check-discloud.mjs",
     "discloud:start": "node scripts/require-env.mjs && npm run discloud:build && prisma db push && prisma db seed && node index.js"
   },
@@ -25,7 +26,6 @@
     "dotenv": "^16.0.0",
     "ioredis": "^5.0.0",
     "prisma": "^6.0.0",
-    "sharp": "^0.34.5",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
   },

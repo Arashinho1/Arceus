@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "discloud:build": "prisma generate && tsc -p tsconfig.json",
+    "discloud:check": "node scripts/check-discloud.mjs",
     "discloud:start": "prisma db push && prisma db seed && node build/index.js"
   },
   "engines": {

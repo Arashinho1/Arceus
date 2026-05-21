@@ -36,9 +36,15 @@ Os arquivos de hospedagem estão prontos na raiz:
 - `discloud.config`
 - `.discloudignore`
 - `.env.example`
-- `DISCloud_DEPLOY.md`
+- `DISCLOUD_DEPLOY.md`
 
 Para upload direto, mantenha o `.env` real na raiz junto do `discloud.config`. A Discloud usa esse arquivo para carregar `DISCORD_TOKEN`, `DATABASE_URL` e demais variáveis. O `.env` continua ignorado pelo Git.
+
+Antes de subir, rode `npm run discloud:build` e confirme que `build/index.js` existe. O `build/` nao vai para o Git, mas precisa ir no zip enviado para a Discloud.
+
+Se a Discloud retornar `O arquivo principal build/index.js não foi encontrado dentro do zip`, o zip foi criado sem a pasta `build/` ou você selecionou a raiz errada.
+
+Veja o passo a passo em [DISCLOUD_DEPLOY.md](DISCLOUD_DEPLOY.md).
 
 ## Arquitetura
 

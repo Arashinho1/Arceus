@@ -29,6 +29,17 @@ npm run dev
 
 No portal do Discord, ative o `Message Content Intent`, porque comandos com prefixo e spawns por mensagem dependem do conteúdo das mensagens.
 
+## Deploy na Discloud
+
+Os arquivos de hospedagem estão prontos na raiz:
+
+- `discloud.config`
+- `.discloudignore`
+- `.env.example`
+- `DISCloud_DEPLOY.md`
+
+Para upload direto, mantenha o `.env` real na raiz junto do `discloud.config`. A Discloud usa esse arquivo para carregar `DISCORD_TOKEN`, `DATABASE_URL` e demais variáveis. O `.env` continua ignorado pelo Git.
+
 ## Arquitetura
 
 Veja [docs/mvp-blueprint.md](docs/mvp-blueprint.md) para a arquitetura, schema, comandos, fluxos de spawn/captura, roadmap e pontos de integração futura com Pokemon Showdown.

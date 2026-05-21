@@ -1,9 +1,12 @@
+.git/
+.github/
+.vscode/
 node_modules/
 build/
 dist/
-.env
-.env.*
-!.env.example
+docs/
 *.log
-.DS_Store
+docker-compose.yml
+README.md
+.env.example
 prisma/migrations/*/migration_lock.toml

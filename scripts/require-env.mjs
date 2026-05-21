@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 const requiredKeys = ["DISCORD_TOKEN", "DATABASE_URL"];
 let hasError = false;
 
@@ -11,6 +13,7 @@ for (const key of requiredKeys) {
 
 if (hasError) {
   console.error("Configure as variaveis no app do bot ou envie um .env real na raiz do zip.");
+  console.error("Se estiver usando GitHub, o .env local nao vai junto: cadastre as variaveis na tela de upload/app da Discloud.");
   process.exit(1);
 }
 

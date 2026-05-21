@@ -65,6 +65,17 @@ if (existsSync(".discloudignore") && main) {
   }
 }
 
+if (existsSync(".gitignore")) {
+  const gitIgnored = readFileSync(".gitignore", "utf8")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"));
+
+  if (gitIgnored.includes(".env") || gitIgnored.includes(".env.*")) {
+    console.log("INFO: .env esta protegido no Git. Em deploy pelo GitHub, cadastre as variaveis no app do bot na Discloud.");
+  }
+}
+
 function readEnvFile() {
   if (!existsSync(".env")) {
     return new Map();

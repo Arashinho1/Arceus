@@ -95,7 +95,7 @@ Nao envie `.env` para GitHub. Ele esta protegido no `.gitignore`.
 
 Importante: o `BUILD` da Discloud pode rodar sem `.env`. Por isso o build do projeto nao depende do banco. O `DATABASE_URL` so precisa existir no `START`, quando roda `prisma db push`.
 
-Se estiver usando GitHub Integration ou algum fluxo que nao envia `.env`, cadastre estas variaveis direto no painel/integração da Discloud:
+Se estiver usando GitHub Integration ou algum fluxo que nao envia `.env`, cadastre estas variaveis direto no app do bot na Discloud. Elas nao ficam no app do PostgreSQL:
 
 ```text
 DISCORD_TOKEN
@@ -103,6 +103,27 @@ DATABASE_URL
 BOT_PREFIX
 NODE_ENV
 ```
+
+Na tela de upload pelo GitHub, use o botao `Colar .env` e cole as variaveis neste formato:
+
+```env
+DISCORD_TOKEN=seu_token_do_bot
+DATABASE_URL=postgresql://arceus:SENHA_DO_BANCO@arceusdb:5432/arceus?schema=public
+BOT_PREFIX=.
+NODE_ENV=production
+```
+
+Tambem deixei um modelo em `discloud.env.example`.
+
+Nao confunda com as variaveis do template do banco:
+
+```text
+POSTGRES_DB
+POSTGRES_USER
+POSTGRES_PASSWORD
+```
+
+Essas tres ficam no app do PostgreSQL. O bot precisa da `DATABASE_URL` completa.
 
 O erro abaixo significa que a Discloud nao recebeu `DATABASE_URL`:
 

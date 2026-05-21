@@ -594,6 +594,9 @@ function buildTrainerCardSvg(
     <pattern id="pixel-grid" width="8" height="8" patternUnits="userSpaceOnUse">
       <path d="M 8 0 L 0 0 0 8" fill="none" stroke="#ffffff" stroke-opacity="0.055" stroke-width="1"/>
     </pattern>
+    <clipPath id="card-inner-clip">
+      <rect x="24" y="24" width="1488" height="976" rx="18"/>
+    </clipPath>
     <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#062b5f" flood-opacity="0.45"/>
     </filter>
@@ -617,7 +620,7 @@ function buildTrainerCardSvg(
   <rect x="24" y="24" width="1488" height="976" rx="18" fill="url(#pixel-grid)" opacity="0.7"/>
   <rect x="24" y="24" width="1488" height="976" rx="18" fill="none" stroke="#56a6f5" stroke-width="3" stroke-opacity="0.75"/>
 
-  <g opacity="0.13">
+  <g opacity="0.13" clip-path="url(#card-inner-clip)">
     <circle cx="540" cy="294" r="306" fill="#f8fbff"/>
     <circle cx="540" cy="294" r="132" fill="#2b80da"/>
     <circle cx="540" cy="294" r="92" fill="#f8fbff"/>
@@ -632,7 +635,6 @@ function buildTrainerCardSvg(
     <circle cx="72" cy="70" r="15" fill="none" stroke="#1764b9" stroke-width="7"/>
     <line x1="45" y1="70" x2="99" y2="70" stroke="#1764b9" stroke-width="8"/>
   </g>
-  <polygon points="1464,40 1478,73 1513,76 1486,99 1494,133 1464,115 1434,133 1442,99 1415,76 1450,73" fill="#ffe75c" stroke="#c78b10" stroke-width="3"/>
 
   <rect x="38" y="132" width="920" height="104" rx="12" fill="url(#panel-bg)" stroke="#8fd0ff" stroke-opacity="0.45" stroke-width="2" filter="url(#soft-shadow)"/>
   <rect x="44" y="138" width="908" height="28" rx="10" fill="#ffffff" opacity="0.13"/>
@@ -658,6 +660,7 @@ function buildTrainerCardSvg(
   ${avatarDataUri ? `<image href="${avatarDataUri}" x="1050" y="162" width="410" height="410" preserveAspectRatio="xMidYMid slice" clip-path="url(#avatar-clip)" filter="url(#pixel-soften)" style="image-rendering: pixelated;"/>` : buildAvatarFallback(input.profile.displayName)}
   <rect x="1050" y="162" width="410" height="410" rx="24" fill="url(#pixel-grid)" opacity="0.22"/>
   <rect x="1058" y="170" width="394" height="72" rx="18" fill="#ffffff" opacity="0.10"/>
+  <polygon points="1464,40 1478,73 1513,76 1486,99 1494,133 1464,115 1434,133 1442,99 1415,76 1450,73" fill="#ffe75c" stroke="#c78b10" stroke-width="3" filter="url(#soft-shadow)"/>
 
   <rect x="38" y="508" width="940" height="190" rx="14" fill="#1459ab" stroke="#0d4690" stroke-width="4" filter="url(#soft-shadow)"/>
   <text x="64" y="553" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="36" font-weight="800" fill="#f8fbff" stroke="#123d7a" stroke-width="2">INSÍGNIAS</text>
@@ -748,8 +751,8 @@ function buildBadgeElements(badges: string[]): string {
 }
 
 function buildTeamElements(team: TeamPokemon[], teamImages: Array<string | null>): string {
-  const slotWidth = 218;
-  const gap = 26;
+  const slotWidth = 208;
+  const gap = 28;
   const startX = 84;
 
   return Array.from({ length: 6 }, (_, index) => {
@@ -758,8 +761,8 @@ function buildTeamElements(team: TeamPokemon[], teamImages: Array<string | null>
     const image = teamImages[index];
     const name = pokemon ? truncate(formatPokemonName(pokemon), 14) : "VAZIO";
     const imageSvg = image
-      ? `<image href="${image}" x="${x + 24}" y="778" width="170" height="136" preserveAspectRatio="xMidYMid meet" style="image-rendering: pixelated;"/>`
-      : `<g opacity="0.82"><circle cx="${x + 109}" cy="848" r="43" fill="#174f95"/><circle cx="${x + 109}" cy="848" r="22" fill="#0f4387"/></g>`;
+      ? `<image href="${image}" x="${x + 20}" y="778" width="168" height="136" preserveAspectRatio="xMidYMid meet" style="image-rendering: pixelated;"/>`
+      : `<g opacity="0.82"><circle cx="${x + slotWidth / 2}" cy="848" r="43" fill="#174f95"/><circle cx="${x + slotWidth / 2}" cy="848" r="22" fill="#0f4387"/></g>`;
 
     return `
       <rect x="${x}" y="770" width="${slotWidth}" height="172" rx="12" fill="url(#slot-bg)" stroke="#0d4690" stroke-width="4"/>

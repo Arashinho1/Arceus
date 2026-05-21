@@ -1,0 +1,312 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PokemonGender {
+  MALE
+  FEMALE
+  GENDERLESS
+}
+
+enum PokemonStatus {
+  NONE
+  BURN
+  PARALYSIS
+  SLEEP
+  POISON
+  FREEZE
+  FAINTED
+}
+
+enum EncounterState {
+  ACTIVE
+  CAPTURED
+  DEFEATED
+  IGNORED
+  EXPIRED
+}
+
+enum ItemCategory {
+  POKE_BALL
+  HEALING
+  EVOLUTION
+  XP
+  KEY
+  OTHER
+}
+
+enum BattleState {
+  PENDING
+  ACTIVE
+  FINISHED
+  CANCELLED
+}
+
+enum BattleEngine {
+  LOCAL
+  SHOWDOWN
+}
+
+enum BattleParticipantType {
+  PLAYER
+  WILD
+  NPC
+}
+
+model User {
+  id        String   @id @default(cuid())
+  discordId String  @unique
+  username  String
+  coins     Int     @default(0)
+  badges    String[] @default([])
+  progress  Json    @default("{}")
+
+  lastDailyAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pokemon           PlayerPokemon[]
+  inventory         Inventory[]
+  spawnedEncounters Encounter[]        @relation("EncounterSpawnedBy")
+  claimedEncounters Encounter[]        @relation("EncounterClaimedBy")
+  battleSlots       BattleParticipant[]
+
+  @@map("users")
+}
+
+model PokemonSpecies {
+  id                String  @id @default(cuid())
+  dexNumber         Int     @unique
+  slug              String  @unique
+  name              String
+  types             String[] @default([])
+  baseCatchRate     Int
+  genderRatioFemale Float?
+  abilities         String[] @default([])
+  hiddenAbility     String?
+
+  baseStats    Json @default("{}")
+  evYield      Json @default("{}")
+  levelUpMoves Json @default("[]")
+  evolutions   Json @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownedPokemon PlayerPokemon[]
+  spawns       MapSpawn[]
+  encounters   Encounter[]
+
+  @@map("pokemon_species")
+}
+
+model PlayerPokemon {
+  id        String @id @default(cuid())
+  userId    String
+  speciesId String
+
+  nickname String?
+  level    Int    @default(1)
+  xp       Int    @default(0)
+
+  gender  PokemonGender
+  shiny   Boolean @default(false)
+  nature  String
+  ability String
+
+  ivs Json @default("{}")
+  evs Json @default("{}")
+
+  moves     String[]      @default([])
+  currentHp Int
+  maxHp     Int
+  status    PokemonStatus @default(NONE)
+
+  isInTeam Boolean @default(false)
+  teamSlot Int?
+  boxNumber Int @default(1)
+  boxSlot   Int?
+
+  originalTrainerId String
+  isReleased        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  species     PokemonSpecies @relation(fields: [speciesId], references: [id])
+  battleSlots BattleParticipant[]
+
+  @@unique([userId, teamSlot])
+  @@unique([userId, boxNumber, boxSlot])
+  @@index([userId, isInTeam, isReleased])
+  @@map("player_pokemon")
+}
+
+model GameMap {
+  id        String @id @default(cuid())
+  guildId   String
+  channelId String @unique
+
+  name        String
+  description String?
+  biome       String
+
+  recommendedMinLevel Int @default(1)
+  recommendedMaxLevel Int @default(5)
+  spawnChance         Float @default(0.08)
+  spawnCooldownSeconds Int @default(45)
+  isActive            Boolean @default(true)
+
+  createdByDiscordId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  spawns     MapSpawn[]
+  encounters Encounter[]
+
+  @@index([guildId, isActive])
+  @@map("maps")
+}
+
+model MapSpawn {
+  id        String @id @default(cuid())
+  mapId     String
+  speciesId String
+
+  weight      Int
+  minLevel    Int
+  maxLevel    Int
+  shinyChance Float @default(0.000244)
+  enabled     Boolean @default(true)
+
+  conditions Json @default("{}")
+  rewards    Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  map     GameMap        @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  species PokemonSpecies @relation(fields: [speciesId], references: [id])
+
+  @@unique([mapId, speciesId])
+  @@index([mapId, enabled])
+  @@map("map_spawns")
+}
+
+model Item {
+  id       String       @id @default(cuid())
+  slug     String       @unique
+  name     String
+  category ItemCategory
+  data     Json         @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inventories Inventory[]
+
+  @@map("items")
+}
+
+model Inventory {
+  id       String @id @default(cuid())
+  userId   String
+  itemId   String
+  quantity Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item Item @relation(fields: [itemId], references: [id])
+
+  @@unique([userId, itemId])
+  @@index([userId])
+  @@map("inventory")
+}
+
+model Encounter {
+  id        String @id @default(cuid())
+  mapId     String?
+  channelId String
+  messageId String?
+
+  speciesId String
+  level     Int
+  gender    PokemonGender
+  shiny     Boolean @default(false)
+  nature    String
+  ability   String
+
+  ivs Json @default("{}")
+  evs Json @default("{}")
+
+  moves     String[]      @default([])
+  currentHp Int
+  maxHp     Int
+  status    PokemonStatus @default(NONE)
+  state     EncounterState @default(ACTIVE)
+
+  spawnedByUserId String?
+  claimedByUserId String?
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  map       GameMap?       @relation(fields: [mapId], references: [id], onDelete: SetNull)
+  species   PokemonSpecies @relation(fields: [speciesId], references: [id])
+  spawnedBy User?          @relation("EncounterSpawnedBy", fields: [spawnedByUserId], references: [id], onDelete: SetNull)
+  claimedBy User?          @relation("EncounterClaimedBy", fields: [claimedByUserId], references: [id], onDelete: SetNull)
+  battle    Battle?
+
+  @@index([channelId, state, expiresAt])
+  @@map("encounters")
+}
+
+model Battle {
+  id          String      @id @default(cuid())
+  encounterId String?     @unique
+  engine      BattleEngine @default(LOCAL)
+  state       BattleState  @default(PENDING)
+
+  turnNumber     Int     @default(1)
+  showdownRoomId String?
+  data           Json    @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  encounter    Encounter?          @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  participants BattleParticipant[]
+
+  @@index([state, engine])
+  @@map("battles")
+}
+
+model BattleParticipant {
+  id       String @id @default(cuid())
+  battleId String
+  userId   String?
+  pokemonId String?
+
+  type BattleParticipantType
+  side Int
+  activePokemonSnapshot Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  battle  Battle         @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  user    User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  pokemon PlayerPokemon? @relation(fields: [pokemonId], references: [id], onDelete: SetNull)
+
+  @@index([battleId, side])
+  @@map("battle_participants")
+}

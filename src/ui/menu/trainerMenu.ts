@@ -13,8 +13,8 @@ import {
   type StringSelectMenuInteraction,
   type WebhookMessageEditOptions
 } from "discord.js";
+import sharp from "sharp";
 import type { AppServices } from "../../services/createServices.js";
-import { renderItemCardWithPillow, renderTrainerCardWithPillow } from "./pillowRenderer.js";
 
 const MENU_SCOPE = "trainer-menu";
 const CARD_FILE_NAME = "trainer-card.png";
@@ -539,32 +539,21 @@ async function renderTrainerCardPng(input: {
   capturedCount: number;
   profile: TrainerMenuProfile;
 }): Promise<Buffer> {
-  return renderTrainerCardWithPillow({
-    trainer: {
-      name: input.profile.displayName,
-      money: input.user.coins,
-      pokedex: input.capturedCount,
-      avatarUrl: input.profile.avatarUrl
-    },
-    badges: input.user.badges,
-    team: input.team.map((pokemon) => ({
-      name: formatPokemonName(pokemon),
-      spriteUrl: pokemon.shiny ? pokemon.species.shinySpriteUrl ?? pokemon.species.spriteUrl : pokemon.species.spriteUrl
-    }))
-  });
+  const avatarDataUri = await fetchImageDataUri(input.profile.avatarUrl);
+  const teamImages = await Promise.all(
+    input.team.map((pokemon) =>
+      fetchImageDataUri(pokemon.shiny ? pokemon.species.shinySpriteUrl ?? pokemon.species.spriteUrl : pokemon.species.spriteUrl)
+    )
+  );
+
+  const svg = buildTrainerCardSvg(input, avatarDataUri, teamImages);
+  return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
 async function renderItemCardPng(entry: InventoryEntry): Promise<Buffer> {
-  return renderItemCardWithPillow({
-    item: {
-      name: entry.item.name,
-      quantity: entry.quantity,
-      category: entry.item.category,
-      categoryLabel: formatItemCategory(entry.item.category),
-      spriteUrl: entry.item.spriteUrl,
-      description: describeItem(entry.item)
-    }
-  });
+  const spriteDataUri = await fetchImageDataUri(entry.item.spriteUrl);
+  const svg = buildItemCardSvg(entry, spriteDataUri);
+  return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
 function buildTrainerCardSvg(
@@ -579,54 +568,104 @@ function buildTrainerCardSvg(
 ): string {
   const badgeElements = buildBadgeElements(input.user.badges);
   const teamElements = buildTeamElements(input.team, teamImages);
-  const trainerName = truncate(input.profile.displayName.toUpperCase(), 20);
+  const trainerName = truncate(input.profile.displayName.toUpperCase(), 18);
 
   return `
 <svg xmlns="http://www.w3.org/2000/svg" width="${CARD_WIDTH}" height="${CARD_HEIGHT}" viewBox="0 0 ${CARD_WIDTH} ${CARD_HEIGHT}">
   <defs>
     <linearGradient id="card-bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1d67bd"/>
-      <stop offset="0.48" stop-color="#2f84e4"/>
-      <stop offset="1" stop-color="#0f4fa5"/>
+      <stop offset="0" stop-color="#1a63ba"/>
+      <stop offset="0.42" stop-color="#2f84de"/>
+      <stop offset="1" stop-color="#0e4a9a"/>
     </linearGradient>
     <linearGradient id="panel-bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#76b9ff" stop-opacity="0.72"/>
-      <stop offset="1" stop-color="#2d75cf" stop-opacity="0.72"/>
+      <stop offset="0" stop-color="#8cc8ff" stop-opacity="0.78"/>
+      <stop offset="0.42" stop-color="#4b9aec" stop-opacity="0.70"/>
+      <stop offset="1" stop-color="#236dc2" stop-opacity="0.82"/>
     </linearGradient>
+    <linearGradient id="party-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a69c4"/>
+      <stop offset="1" stop-color="#0f4c9a"/>
+    </linearGradient>
+    <linearGradient id="slot-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#62a9f4" stop-opacity="0.86"/>
+      <stop offset="1" stop-color="#2d75cf" stop-opacity="0.76"/>
+    </linearGradient>
+    <pattern id="pixel-grid" width="8" height="8" patternUnits="userSpaceOnUse">
+      <path d="M 8 0 L 0 0 0 8" fill="none" stroke="#ffffff" stroke-opacity="0.055" stroke-width="1"/>
+    </pattern>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#062b5f" flood-opacity="0.45"/>
+    </filter>
+    <filter id="blue-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="12" flood-color="#8cd4ff" flood-opacity="0.45"/>
+    </filter>
+    <filter id="pixel-soften">
+      <feComponentTransfer>
+        <feFuncR type="gamma" amplitude="1.05" exponent="0.98"/>
+        <feFuncG type="gamma" amplitude="1.05" exponent="0.98"/>
+        <feFuncB type="gamma" amplitude="1.08" exponent="0.98"/>
+      </feComponentTransfer>
+    </filter>
     <clipPath id="avatar-clip">
-      <rect x="1040" y="150" width="430" height="430" rx="28"/>
+      <rect x="1050" y="162" width="410" height="410" rx="24"/>
     </clipPath>
   </defs>
-  <rect x="7" y="7" width="1522" height="1010" rx="30" fill="#111827"/>
-  <rect x="14" y="14" width="1508" height="996" rx="24" fill="url(#card-bg)" stroke="#e7f2ff" stroke-width="5"/>
-  <circle cx="535" cy="238" r="285" fill="#ffffff" opacity="0.11"/>
-  <circle cx="535" cy="238" r="150" fill="url(#card-bg)" opacity="0.35"/>
-  <rect x="38" y="132" width="920" height="104" rx="10" fill="url(#panel-bg)"/>
-  <rect x="38" y="252" width="920" height="104" rx="10" fill="url(#panel-bg)"/>
-  <rect x="38" y="372" width="920" height="104" rx="10" fill="url(#panel-bg)"/>
-  <text x="112" y="92" font-family="Consolas, monospace" font-size="56" font-weight="800" fill="#f8fbff" stroke="#15396e" stroke-width="2">CARTAO DE TREINADOR</text>
-  <circle cx="72" cy="70" r="27" fill="#f8fbff"/>
-  <circle cx="72" cy="70" r="15" fill="none" stroke="#1764b9" stroke-width="7"/>
-  <line x1="45" y1="70" x2="99" y2="70" stroke="#1764b9" stroke-width="8"/>
-  <polygon points="1464,40 1478,73 1513,76 1486,99 1494,133 1464,115 1434,133 1442,99 1415,76 1450,73" fill="#ffe75c"/>
+
+  <rect x="7" y="7" width="1522" height="1010" rx="30" fill="#101624"/>
+  <rect x="14" y="14" width="1508" height="996" rx="24" fill="url(#card-bg)" stroke="#f1fbff" stroke-width="5"/>
+  <rect x="24" y="24" width="1488" height="976" rx="18" fill="url(#pixel-grid)" opacity="0.7"/>
+  <rect x="24" y="24" width="1488" height="976" rx="18" fill="none" stroke="#56a6f5" stroke-width="3" stroke-opacity="0.75"/>
+
+  <g opacity="0.13">
+    <circle cx="540" cy="294" r="306" fill="#f8fbff"/>
+    <circle cx="540" cy="294" r="132" fill="#2b80da"/>
+    <circle cx="540" cy="294" r="92" fill="#f8fbff"/>
+    <rect x="245" y="266" width="232" height="56" rx="28" fill="#f8fbff"/>
+    <rect x="623" y="266" width="232" height="56" rx="28" fill="#f8fbff"/>
+    <path d="M240 294a300 300 0 0 1 600 0" fill="none" stroke="#f8fbff" stroke-width="50"/>
+  </g>
+
+  <g filter="url(#soft-shadow)">
+    <text x="112" y="92" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="56" font-weight="800" fill="#f8fbff" stroke="#123d7a" stroke-width="3">CARTÃO DE TREINADOR</text>
+    <circle cx="72" cy="70" r="27" fill="#f8fbff"/>
+    <circle cx="72" cy="70" r="15" fill="none" stroke="#1764b9" stroke-width="7"/>
+    <line x1="45" y1="70" x2="99" y2="70" stroke="#1764b9" stroke-width="8"/>
+  </g>
+  <polygon points="1464,40 1478,73 1513,76 1486,99 1494,133 1464,115 1434,133 1442,99 1415,76 1450,73" fill="#ffe75c" stroke="#c78b10" stroke-width="3"/>
+
+  <rect x="38" y="132" width="920" height="104" rx="12" fill="url(#panel-bg)" stroke="#8fd0ff" stroke-opacity="0.45" stroke-width="2" filter="url(#soft-shadow)"/>
+  <rect x="44" y="138" width="908" height="28" rx="10" fill="#ffffff" opacity="0.13"/>
+  <rect x="38" y="252" width="920" height="104" rx="12" fill="url(#panel-bg)" stroke="#8fd0ff" stroke-opacity="0.45" stroke-width="2" filter="url(#soft-shadow)"/>
+  <rect x="44" y="258" width="908" height="28" rx="10" fill="#ffffff" opacity="0.13"/>
+  <rect x="38" y="372" width="920" height="104" rx="12" fill="url(#panel-bg)" stroke="#8fd0ff" stroke-opacity="0.45" stroke-width="2" filter="url(#soft-shadow)"/>
+  <rect x="44" y="378" width="908" height="28" rx="10" fill="#ffffff" opacity="0.13"/>
+
   ${buildInfoIcon("trainer", 95, 185)}
   ${buildInfoIcon("coin", 95, 305)}
   ${buildInfoIcon("ball", 95, 425)}
-  <text x="174" y="207" font-family="Consolas, monospace" font-size="42" font-weight="800" fill="#f8fbff" stroke="#15396e" stroke-width="1.5">NOME DO TREINADOR</text>
-  <text x="930" y="207" text-anchor="end" font-family="Consolas, monospace" font-size="38" font-weight="800" fill="#111827">${escapeXml(trainerName)}</text>
-  <text x="174" y="327" font-family="Consolas, monospace" font-size="42" font-weight="800" fill="#f8fbff" stroke="#15396e" stroke-width="1.5">DINHEIRO TOTAL</text>
-  <text x="930" y="327" text-anchor="end" font-family="Consolas, monospace" font-size="38" font-weight="800" fill="#111827">P$ ${escapeXml(formatNumber(input.user.coins))}</text>
-  <text x="174" y="447" font-family="Consolas, monospace" font-size="42" font-weight="800" fill="#f8fbff" stroke="#15396e" stroke-width="1.5">POKEMON CAPTURADOS</text>
-  <text x="930" y="447" text-anchor="end" font-family="Consolas, monospace" font-size="38" font-weight="800" fill="#111827">${input.capturedCount}</text>
-  <rect x="1016" y="122" width="490" height="498" rx="30" fill="#2b6fc2" stroke="#15519e" stroke-width="5"/>
-  <rect x="1040" y="150" width="430" height="430" rx="28" fill="#62a9f0" stroke="#84c7ff" stroke-width="3"/>
-  ${avatarDataUri ? `<image href="${avatarDataUri}" x="1040" y="150" width="430" height="430" preserveAspectRatio="xMidYMid slice" clip-path="url(#avatar-clip)"/>` : buildAvatarFallback(input.profile.displayName)}
-  <rect x="38" y="508" width="940" height="190" rx="14" fill="#1559ab" stroke="#0d4690" stroke-width="4"/>
-  <text x="64" y="553" font-family="Consolas, monospace" font-size="36" font-weight="800" fill="#f8fbff">INSIGNIAS</text>
-  <rect x="58" y="566" width="902" height="110" rx="10" fill="#3f8cdd" opacity="0.62" stroke="#0d4690" stroke-width="3"/>
+
+  <text x="174" y="207" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="42" font-weight="800" fill="#f8fbff" stroke="#15396e" stroke-width="1.5">NOME DO TREINADOR</text>
+  <text x="930" y="207" text-anchor="end" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="40" font-weight="800" fill="#101827">${escapeXml(trainerName)}</text>
+  <text x="174" y="327" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="42" font-weight="800" fill="#f8fbff" stroke="#15396e" stroke-width="1.5">DINHEIRO TOTAL</text>
+  <text x="930" y="327" text-anchor="end" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="40" font-weight="800" fill="#ffe75c" stroke="#5d4207" stroke-width="1">₽ ${escapeXml(formatNumber(input.user.coins))}</text>
+  <text x="174" y="447" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="42" font-weight="800" fill="#f8fbff" stroke="#15396e" stroke-width="1.5">POKÉDEX</text>
+  <text x="930" y="447" text-anchor="end" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="40" font-weight="800" fill="#101827">${input.capturedCount}</text>
+
+  <rect x="1016" y="122" width="490" height="498" rx="30" fill="#2b6fc2" stroke="#15519e" stroke-width="5" filter="url(#blue-glow)"/>
+  <rect x="1031" y="137" width="460" height="468" rx="28" fill="#1c5fab" stroke="#9ad5ff" stroke-width="3" opacity="0.82"/>
+  <rect x="1050" y="162" width="410" height="410" rx="24" fill="#65aff5" stroke="#0f4c9a" stroke-width="4"/>
+  ${avatarDataUri ? `<image href="${avatarDataUri}" x="1050" y="162" width="410" height="410" preserveAspectRatio="xMidYMid slice" clip-path="url(#avatar-clip)" filter="url(#pixel-soften)" style="image-rendering: pixelated;"/>` : buildAvatarFallback(input.profile.displayName)}
+  <rect x="1050" y="162" width="410" height="410" rx="24" fill="url(#pixel-grid)" opacity="0.22"/>
+  <rect x="1058" y="170" width="394" height="72" rx="18" fill="#ffffff" opacity="0.10"/>
+
+  <rect x="38" y="508" width="940" height="190" rx="14" fill="#1459ab" stroke="#0d4690" stroke-width="4" filter="url(#soft-shadow)"/>
+  <text x="64" y="553" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="36" font-weight="800" fill="#f8fbff" stroke="#123d7a" stroke-width="2">INSÍGNIAS</text>
+  <rect x="58" y="566" width="902" height="110" rx="10" fill="#3f8cdd" opacity="0.62" stroke="#8fd0ff" stroke-opacity="0.42" stroke-width="3"/>
   ${badgeElements}
-  <rect x="38" y="720" width="1460" height="245" rx="14" fill="#1559ab" stroke="#0d4690" stroke-width="4"/>
-  <text x="64" y="760" font-family="Consolas, monospace" font-size="36" font-weight="800" fill="#f8fbff">EQUIPE</text>
+
+  <rect x="38" y="720" width="1460" height="245" rx="14" fill="url(#party-bg)" stroke="#0d4690" stroke-width="4" filter="url(#soft-shadow)"/>
+  <text x="64" y="760" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="36" font-weight="800" fill="#f8fbff" stroke="#123d7a" stroke-width="2">EQUIPE</text>
   ${teamElements}
 </svg>`;
 }
@@ -684,20 +723,25 @@ function buildInfoIcon(kind: "trainer" | "coin" | "ball", cx: number, cy: number
 }
 
 function buildBadgeElements(badges: string[]): string {
-  const colors = ["#b8bec7", "#58c7ff", "#f7c948", "#ff89ca", "#f6657c", "#c0c7d5", "#70d178", "#9b7cff"];
+  const colors = ["#b9c0c9", "#58c7ff", "#f7c948", "#ff8bd2", "#f6657c", "#cfd4df", "#70d178", "#9b7cff"];
   const slots = Array.from({ length: 8 }, (_, index) => {
     const badge = badges[index];
     const x = 108 + index * 108;
     const color = colors[index] ?? "#b8bec7";
+    const points = `${x},584 ${x + 34},603 ${x + 34},641 ${x},662 ${x - 34},641 ${x - 34},603`;
 
     if (!badge) {
-      return `<circle cx="${x}" cy="622" r="34" fill="#174f95" opacity="0.65"/>`;
+      return `
+        <polygon points="${points}" fill="#164b91" opacity="0.62"/>
+        <polygon points="${points}" fill="none" stroke="#0d3e7c" stroke-width="4" opacity="0.85"/>
+        <circle cx="${x}" cy="622" r="18" fill="#0f4387" opacity="0.55"/>`;
     }
 
     return `
-      <circle cx="${x}" cy="622" r="34" fill="${color}" stroke="#102f5f" stroke-width="4"/>
-      <polygon points="${x},584 ${x + 12},610 ${x + 40},612 ${x + 18},630 ${x + 25},658 ${x},644 ${x - 25},658 ${x - 18},630 ${x - 40},612 ${x - 12},610" fill="#ffffff" opacity="0.35"/>
-      <text x="${x}" y="631" text-anchor="middle" font-family="Consolas, monospace" font-size="26" font-weight="800" fill="#111827">${escapeXml(badge[0]?.toUpperCase() ?? "")}</text>`;
+      <polygon points="${points}" fill="${color}" stroke="#102f5f" stroke-width="4" filter="url(#blue-glow)"/>
+      <polygon points="${x},592 ${x + 13},612 ${x + 28},616 ${x + 11},629 ${x + 16},652 ${x},640 ${x - 16},652 ${x - 11},629 ${x - 28},616 ${x - 13},612" fill="#ffffff" opacity="0.36"/>
+      <circle cx="${x}" cy="622" r="16" fill="#ffffff" opacity="0.25"/>
+      <text x="${x}" y="632" text-anchor="middle" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="25" font-weight="800" fill="#101827">${escapeXml(badge[0]?.toUpperCase() ?? "")}</text>`;
   });
 
   return slots.join("");
@@ -714,13 +758,15 @@ function buildTeamElements(team: TeamPokemon[], teamImages: Array<string | null>
     const image = teamImages[index];
     const name = pokemon ? truncate(formatPokemonName(pokemon), 14) : "VAZIO";
     const imageSvg = image
-      ? `<image href="${image}" x="${x + 38}" y="780" width="142" height="142" preserveAspectRatio="xMidYMid meet"/>`
-      : `<circle cx="${x + 109}" cy="852" r="42" fill="#174f95" opacity="0.7"/>`;
+      ? `<image href="${image}" x="${x + 24}" y="778" width="170" height="136" preserveAspectRatio="xMidYMid meet" style="image-rendering: pixelated;"/>`
+      : `<g opacity="0.82"><circle cx="${x + 109}" cy="848" r="43" fill="#174f95"/><circle cx="${x + 109}" cy="848" r="22" fill="#0f4387"/></g>`;
 
     return `
-      <rect x="${x}" y="770" width="${slotWidth}" height="172" rx="12" fill="#4a93df" opacity="0.72" stroke="#0d4690" stroke-width="4"/>
+      <rect x="${x}" y="770" width="${slotWidth}" height="172" rx="12" fill="url(#slot-bg)" stroke="#0d4690" stroke-width="4"/>
+      <rect x="${x + 8}" y="778" width="${slotWidth - 16}" height="36" rx="9" fill="#ffffff" opacity="0.12"/>
+      <ellipse cx="${x + slotWidth / 2}" cy="888" rx="70" ry="18" fill="#0e4386" opacity="0.36"/>
       ${imageSvg}
-      <text x="${x + slotWidth / 2}" y="928" text-anchor="middle" font-family="Consolas, monospace" font-size="20" font-weight="800" fill="#f8fbff">${escapeXml(name)}</text>`;
+      <text x="${x + slotWidth / 2}" y="928" text-anchor="middle" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="20" font-weight="800" fill="#f8fbff" stroke="#0d3e7c" stroke-width="1">${escapeXml(name.toUpperCase())}</text>`;
   }).join("");
 }
 

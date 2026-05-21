@@ -91,6 +91,63 @@ NODE_ENV="production"
 
 Nao envie `.env` para GitHub. Ele esta protegido no `.gitignore`.
 
+Se estiver usando GitHub Integration ou algum fluxo que nao envia `.env`, cadastre estas variaveis direto no painel/integração da Discloud:
+
+```text
+DISCORD_TOKEN
+DATABASE_URL
+BOT_PREFIX
+NODE_ENV
+```
+
+O erro abaixo significa que a Discloud nao recebeu `DATABASE_URL`:
+
+```text
+Environment variable not found: DATABASE_URL
+```
+
+Nesse caso, o problema nao e mais o arquivo principal. E a variavel de banco ausente no ambiente da Discloud.
+
+## Usando banco PostgreSQL por template da Discloud
+
+Este bot usa Prisma com PostgreSQL. Para usar o banco criado pelo template da Discloud:
+
+1. Abra `https://discloud.com/templates`.
+2. Escolha o template de PostgreSQL.
+3. Crie/hospede o template com um nome claro, por exemplo `arceus-db`.
+4. Depois que o template estiver ativo, copie a connection string/URL de conexao do PostgreSQL.
+5. No app do bot, defina essa URL como `DATABASE_URL`.
+
+O formato esperado pelo Prisma e:
+
+```env
+DATABASE_URL="postgresql://usuario:senha@host:5432/banco?schema=public"
+```
+
+Se o painel do template mostrar dados separados, monte a URL assim:
+
+```text
+postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public
+```
+
+Exemplo ficticio:
+
+```env
+DATABASE_URL="postgresql://arceus:minha_senha@postgres.discloud.app:5432/arceus?schema=public"
+```
+
+Nao use `localhost` na Discloud. Dentro da Discloud, `localhost` seria o proprio container do bot, nao o banco gerenciado.
+
+Depois de configurar `DATABASE_URL`, envie/commit o bot novamente. No primeiro start, o comando `npm run discloud:start` roda:
+
+```bash
+prisma db push
+prisma db seed
+node index.js
+```
+
+Isso cria as tabelas do Prisma e popula os dados iniciais de Pokemon/itens.
+
 ## Comandos usados pela Discloud
 
 Build:

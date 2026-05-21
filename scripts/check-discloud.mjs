@@ -25,6 +25,7 @@ function readConfig() {
 
 const config = readConfig();
 const main = config.get("MAIN");
+const envFile = readEnvFile();
 
 if (!main) {
   fail("MAIN nao foi definido no discloud.config.");
@@ -40,6 +41,15 @@ if (!existsSync(".env")) {
   console.log("OK: .env encontrado na raiz.");
 }
 
+for (const requiredKey of ["DISCORD_TOKEN", "DATABASE_URL"]) {
+  const value = process.env[requiredKey] ?? envFile.get(requiredKey);
+  if (!value || value.includes("coloque-") || value.includes("url-postgres")) {
+    fail(`${requiredKey} nao esta configurado. Defina essa variavel na Discloud ou no .env enviado no zip.`);
+  } else {
+    console.log(`OK: ${requiredKey} configurado.`);
+  }
+}
+
 if (existsSync(".discloudignore") && main) {
   const ignored = readFileSync(".discloudignore", "utf8")
     .split(/\r?\n/)
@@ -53,4 +63,27 @@ if (existsSync(".discloudignore") && main) {
   } else {
     console.log("OK: .discloudignore nao bloqueia o arquivo principal.");
   }
+}
+
+function readEnvFile() {
+  if (!existsSync(".env")) {
+    return new Map();
+  }
+
+  const entries = readFileSync(".env", "utf8")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"))
+    .flatMap((line) => {
+      const separator = line.indexOf("=");
+      if (separator <= 0) {
+        return [];
+      }
+
+      const key = line.slice(0, separator).trim();
+      const value = line.slice(separator + 1).trim().replace(/^["']|["']$/g, "");
+      return [[key, value]];
+    });
+
+  return new Map(entries);
 }

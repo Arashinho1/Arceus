@@ -3,6 +3,7 @@ import { AttachmentBuilder, EmbedBuilder } from "discord.js";
 import sharp from "sharp";
 import { STAT_KEYS, type StatKey, type StatTable } from "../../domain/pokemon/types.js";
 import type { AppServices } from "../../services/createServices.js";
+import { fetchImageDataUri } from "../assets/imageCache.js";
 
 const INFO_CARD_WIDTH = 1536;
 const INFO_CARD_HEIGHT = 1024;
@@ -575,39 +576,6 @@ function resolveTypeTheme(type: string | undefined): TypeTheme {
   };
 
   return themes[key] ?? normalTheme;
-}
-
-async function fetchImageDataUri(url: string | null | undefined): Promise<string | null> {
-  if (!url) {
-    return null;
-  }
-
-  try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    if (!response.ok) {
-      return null;
-    }
-
-    const contentType = response.headers.get("content-type") ?? inferImageMime(url);
-    const buffer = Buffer.from(await response.arrayBuffer());
-    return `data:${contentType};base64,${buffer.toString("base64")}`;
-  } catch {
-    return null;
-  }
-}
-
-function inferImageMime(url: string): string {
-  const lowerUrl = url.toLowerCase();
-  if (lowerUrl.endsWith(".jpg") || lowerUrl.endsWith(".jpeg")) {
-    return "image/jpeg";
-  }
-  if (lowerUrl.endsWith(".webp")) {
-    return "image/webp";
-  }
-  if (lowerUrl.endsWith(".gif")) {
-    return "image/gif";
-  }
-  return "image/png";
 }
 
 function clamp(value: number, min: number, max: number): number {

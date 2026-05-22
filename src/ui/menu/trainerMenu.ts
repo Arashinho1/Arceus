@@ -909,7 +909,8 @@ function buildPokemonTable(pokemon: CollectionPokemon[]): string {
     tableCell("Lv", 4, "right"),
     tableCell("IV%", 7, "right"),
     tableCell("HP", 9, "right"),
-    tableCell("Local", 8)
+    tableCell("Local", 8),
+    tableCell("Tags", 7)
   ].join(" ");
   const rows = pokemon.map((entry) =>
     [
@@ -918,7 +919,8 @@ function buildPokemonTable(pokemon: CollectionPokemon[]): string {
       tableCell(String(entry.level), 4, "right"),
       tableCell(formatIvPercent(entry.ivs), 7, "right"),
       tableCell(`${entry.currentHp}/${entry.maxHp}`, 9, "right"),
-      tableCell(formatPokemonLocation(entry), 8)
+      tableCell(formatPokemonLocation(entry), 8),
+      tableCell(formatPokemonTags(entry), 7)
     ].join(" ")
   );
 
@@ -932,7 +934,8 @@ function buildBoxTable(pokemon: CollectionPokemon[]): string {
     tableCell("Pokemon", 20),
     tableCell("Lv", 4, "right"),
     tableCell("IV%", 7, "right"),
-    tableCell("HP", 9, "right")
+    tableCell("HP", 9, "right"),
+    tableCell("Tags", 7)
   ].join(" ");
   const rows = pokemon.map((entry) =>
     [
@@ -941,7 +944,8 @@ function buildBoxTable(pokemon: CollectionPokemon[]): string {
       tableCell(formatListPokemonName(entry), 20),
       tableCell(String(entry.level), 4, "right"),
       tableCell(formatIvPercent(entry.ivs), 7, "right"),
-      tableCell(`${entry.currentHp}/${entry.maxHp}`, 9, "right")
+      tableCell(`${entry.currentHp}/${entry.maxHp}`, 9, "right"),
+      tableCell(formatPokemonTags(entry), 7)
     ].join(" ")
   );
 
@@ -1093,6 +1097,18 @@ function formatBoxSlot(pokemon: Pick<PlayerPokemon, "boxNumber" | "boxSlot">): s
   const box = String(pokemon.boxNumber).padStart(2, "0");
   const slot = pokemon.boxSlot ? String(pokemon.boxSlot).padStart(2, "0") : "--";
   return `${box}/${slot}`;
+}
+
+function formatPokemonTags(pokemon: Pick<PlayerPokemon, "shiny" | "isFavorite">): string {
+  const tags = [];
+  if (pokemon.shiny) {
+    tags.push("Sh");
+  }
+  if (pokemon.isFavorite) {
+    tags.push("Fav");
+  }
+
+  return tags.join(",") || "-";
 }
 
 function formatIvPercent(raw: unknown): string {

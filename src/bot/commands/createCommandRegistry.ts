@@ -1,6 +1,7 @@
 import { EmbedBuilder, PermissionFlagsBits } from "discord.js";
 import type { PrefixCommand } from "./types.js";
 import type { AppServices } from "../../services/createServices.js";
+import { buildPokemonInfoPayload } from "../../ui/cards/pokemonInfoCard.js";
 import {
   buildTrainerBoxPayload,
   buildTrainerCardPayload,
@@ -73,6 +74,47 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
             parseListPage(args[0])
           )
         );
+      }
+    },
+    {
+      name: "info",
+      description: "Mostra a ficha visual de um Pokemon pela ref.",
+      async execute({ message, services, args, prefix }) {
+        const ref = args[0];
+        if (!ref) {
+          await message.reply(`Uso: ${prefix}info <ref>. Pegue a ref em ${prefix}pokemon ou ${prefix}box.`);
+          return;
+        }
+
+        await message.reply(await buildPokemonInfoPayload(services, buildTrainerProfileFromMessage(message), ref));
+      }
+    },
+    {
+      name: "favoritar",
+      aliases: ["fav"],
+      description: "Marca um Pokemon como favorito pela ref.",
+      async execute({ message, services, args, prefix }) {
+        const ref = args[0];
+        if (!ref) {
+          await message.reply(`Uso: ${prefix}favoritar <ref>. Pegue a ref em ${prefix}pokemon ou ${prefix}box.`);
+          return;
+        }
+
+        await message.reply(await setPokemonFavorite(services, message.author.id, message.author.username, ref, true));
+      }
+    },
+    {
+      name: "desfavoritar",
+      aliases: ["unfav"],
+      description: "Remove o favorito de um Pokemon pela ref.",
+      async execute({ message, services, args, prefix }) {
+        const ref = args[0];
+        if (!ref) {
+          await message.reply(`Uso: ${prefix}desfavoritar <ref>. Pegue a ref em ${prefix}pokemon ou ${prefix}box.`);
+          return;
+        }
+
+        await message.reply(await setPokemonFavorite(services, message.author.id, message.author.username, ref, false));
       }
     },
     {
@@ -196,6 +238,63 @@ function splitPipeArgs(raw: string): string[] {
 function parseListPage(raw: string | undefined): number {
   const page = Number(raw);
   return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+}
+
+async function setPokemonFavorite(
+  services: AppServices,
+  discordId: string,
+  username: string,
+  ref: string,
+  isFavorite: boolean
+): Promise<string> {
+  const normalizedRef = ref.trim().toLowerCase();
+  if (normalizedRef.length < 4) {
+    return "Use uma ref com pelo menos 4 caracteres. Pegue a ref em .pokemon ou .box.";
+  }
+
+  const user = await services.user.ensureUser({ discordId, username });
+  const matches = await services.prisma.playerPokemon.findMany({
+    where: {
+      userId: user.id,
+      isReleased: false,
+      id: { startsWith: normalizedRef }
+    },
+    include: {
+      species: {
+        select: { name: true }
+      }
+    },
+    orderBy: { createdAt: "asc" },
+    take: 3
+  });
+
+  if (matches.length === 0) {
+    return "Nao encontrei nenhum Pokemon seu com essa ref.";
+  }
+
+  if (matches.length > 1) {
+    return "Essa ref encontrou mais de um Pokemon. Use mais caracteres do ID exibido em .pokemon ou .box.";
+  }
+
+  const pokemon = matches[0];
+  if (!pokemon) {
+    return "Nao encontrei nenhum Pokemon seu com essa ref.";
+  }
+
+  if (pokemon.isFavorite === isFavorite) {
+    return isFavorite
+      ? `${pokemon.species.name} ja esta marcado como favorito.`
+      : `${pokemon.species.name} ja nao esta marcado como favorito.`;
+  }
+
+  await services.prisma.playerPokemon.update({
+    where: { id: pokemon.id },
+    data: { isFavorite }
+  });
+
+  return isFavorite
+    ? `${pokemon.species.name} agora esta marcado como favorito.`
+    : `${pokemon.species.name} nao esta mais marcado como favorito.`;
 }
 
 function parseChannelId(raw?: string): string | null {

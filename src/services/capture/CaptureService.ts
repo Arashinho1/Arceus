@@ -42,7 +42,15 @@ export class CaptureService {
           state: EncounterState.ACTIVE,
           expiresAt: { gt: new Date() }
         },
-        include: { species: true }
+        include: {
+          species: true,
+          map: {
+            select: {
+              name: true,
+              channelId: true
+            }
+          }
+        }
       });
 
       if (!encounter) {
@@ -115,7 +123,11 @@ export class CaptureService {
           teamSlot: placement.teamSlot,
           boxNumber: placement.boxNumber,
           boxSlot: placement.boxSlot,
-          originalTrainerId: user.id
+          originalTrainerId: user.id,
+          caughtBallSlug: item.slug,
+          caughtBallName: item.name,
+          originLabel: this.formatOriginLabel(encounter),
+          originChannelId: encounter.channelId
         }
       });
 
@@ -173,6 +185,14 @@ export class CaptureService {
       default:
         return 1;
     }
+  }
+
+  private formatOriginLabel(encounter: Encounter & { map?: { name: string; channelId: string } | null }): string {
+    if (encounter.map) {
+      return `${encounter.map.name} - Spawn`;
+    }
+
+    return `Canal ${encounter.channelId} - Spawn`;
   }
 
   private async nextPlacement(

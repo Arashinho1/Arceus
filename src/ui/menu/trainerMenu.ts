@@ -24,8 +24,10 @@ const CARD_HEIGHT = 1024;
 const ITEM_CARD_WIDTH = 920;
 const ITEM_CARD_HEIGHT = 460;
 const MAX_INVENTORY_BUTTONS = 20;
+const POKEMON_LIST_PAGE_SIZE = 20;
 
-type MenuAction = "card" | "bag" | "view" | "use" | "target" | "close";
+type MenuAction = "card" | "bag" | "pokemon" | "box" | "view" | "use" | "target" | "close";
+type MenuTab = "card" | "bag" | "pokemon" | "box";
 type MenuComponentRow = ActionRowBuilder<MessageActionRowComponentBuilder>;
 
 export type TrainerMenuProfile = {
@@ -41,6 +43,10 @@ type TeamPokemon = PlayerPokemon & {
 
 type InventoryEntry = Inventory & {
   item: Pick<Item, "id" | "slug" | "name" | "category" | "spriteUrl" | "data">;
+};
+
+type CollectionPokemon = PlayerPokemon & {
+  species: Pick<PokemonSpecies, "name" | "types" | "spriteUrl" | "shinySpriteUrl">;
 };
 
 type TrainerMenuPayload = {
@@ -182,6 +188,22 @@ export async function buildTrainerInventoryPayload(
   };
 }
 
+export async function buildTrainerPokemonListPayload(
+  services: AppServices,
+  profile: TrainerMenuProfile,
+  page = 1
+): Promise<TrainerMenuPayload> {
+  return buildTrainerPokemonCollectionPayload(services, profile, "pokemon", page);
+}
+
+export async function buildTrainerBoxPayload(
+  services: AppServices,
+  profile: TrainerMenuProfile,
+  page = 1
+): Promise<TrainerMenuPayload> {
+  return buildTrainerPokemonCollectionPayload(services, profile, "box", page);
+}
+
 export async function handleTrainerMenuInteraction(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
   services: AppServices
@@ -208,6 +230,16 @@ export async function handleTrainerMenuInteraction(
 
   if (parsed.action === "bag") {
     await editTrainerMenuReply(interaction, await buildTrainerInventoryPayload(services, profile));
+    return;
+  }
+
+  if (parsed.action === "pokemon") {
+    await editTrainerMenuReply(interaction, await buildTrainerPokemonListPayload(services, profile, parsePage(parsed.subject)));
+    return;
+  }
+
+  if (parsed.action === "box") {
+    await editTrainerMenuReply(interaction, await buildTrainerBoxPayload(services, profile, parsePage(parsed.subject)));
     return;
   }
 
@@ -268,6 +300,57 @@ async function editTrainerMenuReply(
   };
 
   await interaction.editReply(options);
+}
+
+async function buildTrainerPokemonCollectionPayload(
+  services: AppServices,
+  profile: TrainerMenuProfile,
+  mode: "pokemon" | "box",
+  page: number
+): Promise<TrainerMenuPayload> {
+  const user = await services.user.ensureUser({
+    discordId: profile.discordId,
+    username: profile.username
+  });
+  const where = {
+    userId: user.id,
+    isReleased: false,
+    ...(mode === "box" ? { isInTeam: false } : {})
+  };
+  const total = await services.prisma.playerPokemon.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / POKEMON_LIST_PAGE_SIZE));
+  const currentPage = clampPage(page, totalPages);
+  const pokemon = total === 0
+    ? []
+    : await services.prisma.playerPokemon.findMany({
+        where,
+        orderBy: mode === "box"
+          ? [{ boxNumber: "asc" }, { boxSlot: "asc" }, { createdAt: "asc" }]
+          : [{ isInTeam: "desc" }, { teamSlot: "asc" }, { boxNumber: "asc" }, { boxSlot: "asc" }, { createdAt: "asc" }],
+        skip: (currentPage - 1) * POKEMON_LIST_PAGE_SIZE,
+        take: POKEMON_LIST_PAGE_SIZE,
+        include: {
+          species: {
+            select: {
+              name: true,
+              types: true,
+              spriteUrl: true,
+              shinySpriteUrl: true
+            }
+          }
+        }
+      });
+  const activeTab: MenuTab = mode === "box" ? "box" : "pokemon";
+  const components = [buildNavRow(profile.discordId, activeTab)];
+
+  if (totalPages > 1) {
+    components.push(buildPokemonPaginationRow(profile.discordId, activeTab, currentPage, totalPages));
+  }
+
+  return {
+    embeds: [buildPokemonCollectionEmbed(mode, pokemon, currentPage, totalPages, total)],
+    components
+  };
 }
 
 async function buildItemDetailPayload(
@@ -786,7 +869,86 @@ function buildAvatarFallback(displayName: string): string {
     <text x="1255" y="390" text-anchor="middle" font-family="Consolas, monospace" font-size="76" font-weight="800" fill="#f8fbff">${escapeXml(initials || "T")}</text>`;
 }
 
-function buildNavRow(ownerDiscordId: string, active: "card" | "bag"): MenuComponentRow {
+function buildPokemonCollectionEmbed(
+  mode: "pokemon" | "box",
+  pokemon: CollectionPokemon[],
+  currentPage: number,
+  totalPages: number,
+  total: number
+): EmbedBuilder {
+  const isBox = mode === "box";
+  const embed = new EmbedBuilder()
+    .setColor(isBox ? 0x5865f2 : 0xf05f57)
+    .setTitle(isBox ? "Box Pokemon" : "Colecao Pokemon");
+
+  if (pokemon.length === 0) {
+    embed.setDescription(isBox ? "Sua box esta vazia." : "Voce ainda nao capturou nenhum Pokemon.");
+    return embed;
+  }
+
+  const start = (currentPage - 1) * POKEMON_LIST_PAGE_SIZE + 1;
+  const end = start + pokemon.length - 1;
+  embed
+    .setDescription(isBox ? buildBoxTable(pokemon) : buildPokemonTable(pokemon))
+    .setFooter({ text: `Mostrando ${start}-${end} de ${total}. Pagina ${currentPage}/${totalPages}.` });
+
+  const thumbnail = pokemon
+    .map((entry) => entry.shiny ? entry.species.shinySpriteUrl ?? entry.species.spriteUrl : entry.species.spriteUrl)
+    .find((url): url is string => Boolean(url));
+  if (thumbnail) {
+    embed.setThumbnail(thumbnail);
+  }
+
+  return embed;
+}
+
+function buildPokemonTable(pokemon: CollectionPokemon[]): string {
+  const header = [
+    tableCell("Ref", 8),
+    tableCell("Pokemon", 20),
+    tableCell("Lv", 4, "right"),
+    tableCell("IV%", 7, "right"),
+    tableCell("HP", 9, "right"),
+    tableCell("Local", 8)
+  ].join(" ");
+  const rows = pokemon.map((entry) =>
+    [
+      tableCell(shortPokemonRef(entry.id), 8),
+      tableCell(formatListPokemonName(entry), 20),
+      tableCell(String(entry.level), 4, "right"),
+      tableCell(formatIvPercent(entry.ivs), 7, "right"),
+      tableCell(`${entry.currentHp}/${entry.maxHp}`, 9, "right"),
+      tableCell(formatPokemonLocation(entry), 8)
+    ].join(" ")
+  );
+
+  return codeBlock([header, ...rows]);
+}
+
+function buildBoxTable(pokemon: CollectionPokemon[]): string {
+  const header = [
+    tableCell("Slot", 7),
+    tableCell("Ref", 8),
+    tableCell("Pokemon", 20),
+    tableCell("Lv", 4, "right"),
+    tableCell("IV%", 7, "right"),
+    tableCell("HP", 9, "right")
+  ].join(" ");
+  const rows = pokemon.map((entry) =>
+    [
+      tableCell(formatBoxSlot(entry), 7),
+      tableCell(shortPokemonRef(entry.id), 8),
+      tableCell(formatListPokemonName(entry), 20),
+      tableCell(String(entry.level), 4, "right"),
+      tableCell(formatIvPercent(entry.ivs), 7, "right"),
+      tableCell(`${entry.currentHp}/${entry.maxHp}`, 9, "right")
+    ].join(" ")
+  );
+
+  return codeBlock([header, ...rows]);
+}
+
+function buildNavRow(ownerDiscordId: string, active: MenuTab): MenuComponentRow {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(customId(ownerDiscordId, "card"))
@@ -797,7 +959,37 @@ function buildNavRow(ownerDiscordId: string, active: "card" | "bag"): MenuCompon
       .setCustomId(customId(ownerDiscordId, "bag"))
       .setLabel("Mochila")
       .setStyle(active === "bag" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setDisabled(active === "bag")
+      .setDisabled(active === "bag"),
+    new ButtonBuilder()
+      .setCustomId(customId(ownerDiscordId, "pokemon", "1"))
+      .setLabel("Pokemon")
+      .setStyle(active === "pokemon" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setDisabled(active === "pokemon"),
+    new ButtonBuilder()
+      .setCustomId(customId(ownerDiscordId, "box", "1"))
+      .setLabel("Box")
+      .setStyle(active === "box" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setDisabled(active === "box")
+  );
+}
+
+function buildPokemonPaginationRow(ownerDiscordId: string, action: "pokemon" | "box", currentPage: number, totalPages: number): MenuComponentRow {
+  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(customId(ownerDiscordId, action, String(Math.max(1, currentPage - 1))))
+      .setLabel("Anterior")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(currentPage <= 1),
+    new ButtonBuilder()
+      .setCustomId(customId(ownerDiscordId, action, String(currentPage)))
+      .setLabel(`${currentPage}/${totalPages}`)
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(true),
+    new ButtonBuilder()
+      .setCustomId(customId(ownerDiscordId, action, String(Math.min(totalPages, currentPage + 1))))
+      .setLabel("Proxima")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(currentPage >= totalPages)
   );
 }
 
@@ -844,6 +1036,16 @@ function customId(ownerDiscordId: string, action: MenuAction, subject?: string):
   return [MENU_SCOPE, ownerDiscordId, action, subject].filter(Boolean).join(":");
 }
 
+function parsePage(raw: string | undefined): number {
+  const page = Number(raw);
+  return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+}
+
+function clampPage(page: number, totalPages: number): number {
+  const normalized = Number.isFinite(page) ? Math.floor(page) : 1;
+  return Math.min(totalPages, Math.max(1, normalized));
+}
+
 function parseCustomId(id: string): ParsedCustomId | null {
   const [scope, ownerDiscordId, rawAction, subject] = id.split(":");
   if (scope !== MENU_SCOPE || !ownerDiscordId || !isMenuAction(rawAction)) {
@@ -854,7 +1056,16 @@ function parseCustomId(id: string): ParsedCustomId | null {
 }
 
 function isMenuAction(action: string | undefined): action is MenuAction {
-  return action === "card" || action === "bag" || action === "view" || action === "use" || action === "target" || action === "close";
+  return (
+    action === "card" ||
+    action === "bag" ||
+    action === "pokemon" ||
+    action === "box" ||
+    action === "view" ||
+    action === "use" ||
+    action === "target" ||
+    action === "close"
+  );
 }
 
 function isPokemonTargetItem(category: ItemCategory): boolean {
@@ -863,6 +1074,48 @@ function isPokemonTargetItem(category: ItemCategory): boolean {
 
 function formatPokemonName(pokemon: Pick<PlayerPokemon, "nickname"> & { species: Pick<PokemonSpecies, "name"> }): string {
   return pokemon.nickname ? `${pokemon.nickname} (${pokemon.species.name})` : pokemon.species.name;
+}
+
+function formatListPokemonName(pokemon: CollectionPokemon): string {
+  const name = cleanTableText(formatPokemonName(pokemon));
+  return pokemon.shiny ? `*${name}` : name;
+}
+
+function formatPokemonLocation(pokemon: CollectionPokemon): string {
+  if (pokemon.isInTeam) {
+    return `Eq ${pokemon.teamSlot ?? "?"}`;
+  }
+
+  return `B${String(pokemon.boxNumber).padStart(2, "0")}/${pokemon.boxSlot ? String(pokemon.boxSlot).padStart(2, "0") : "--"}`;
+}
+
+function formatBoxSlot(pokemon: Pick<PlayerPokemon, "boxNumber" | "boxSlot">): string {
+  const box = String(pokemon.boxNumber).padStart(2, "0");
+  const slot = pokemon.boxSlot ? String(pokemon.boxSlot).padStart(2, "0") : "--";
+  return `${box}/${slot}`;
+}
+
+function formatIvPercent(raw: unknown): string {
+  const ivs = readStatTable(raw);
+  const total = ivs.hp + ivs.attack + ivs.defense + ivs.specialAttack + ivs.specialDefense + ivs.speed;
+  return ((total / 186) * 100).toFixed(2);
+}
+
+function shortPokemonRef(id: string): string {
+  return id.slice(0, 8);
+}
+
+function tableCell(value: string, width: number, align: "left" | "right" = "left"): string {
+  const cleanValue = truncate(cleanTableText(value), width);
+  return align === "right" ? cleanValue.padStart(width) : cleanValue.padEnd(width);
+}
+
+function cleanTableText(value: string): string {
+  return value.replace(/`/g, "'").replace(/\s+/g, " ").trim();
+}
+
+function codeBlock(lines: string[]): string {
+  return ["```txt", ...lines, "```"].join("\n");
 }
 
 function formatItemCategory(category: ItemCategory): string {

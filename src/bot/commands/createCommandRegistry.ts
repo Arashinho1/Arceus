@@ -1,7 +1,12 @@
 import { EmbedBuilder, PermissionFlagsBits } from "discord.js";
 import type { PrefixCommand } from "./types.js";
 import type { AppServices } from "../../services/createServices.js";
-import { buildTrainerCardPayload, buildTrainerProfileFromMessage } from "../../ui/menu/trainerMenu.js";
+import {
+  buildTrainerBoxPayload,
+  buildTrainerCardPayload,
+  buildTrainerPokemonListPayload,
+  buildTrainerProfileFromMessage
+} from "../../ui/menu/trainerMenu.js";
 
 export function createCommandRegistry(services: AppServices): Map<string, PrefixCommand> {
   const commands: PrefixCommand[] = [
@@ -44,27 +49,30 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
       }
     },
     {
+      name: "pokemon",
+      aliases: ["p"],
+      description: "Mostra a colecao de Pokemon do jogador.",
+      async execute({ message, services, args }) {
+        await message.reply(
+          await buildTrainerPokemonListPayload(
+            services,
+            buildTrainerProfileFromMessage(message),
+            parseListPage(args[0])
+          )
+        );
+      }
+    },
+    {
       name: "box",
-      description: "Mostra os primeiros Pokemon guardados na box.",
-      async execute({ message }) {
-        const user = await services.user.ensureUser({
-          discordId: message.author.id,
-          username: message.author.username
-        });
-
-        const boxed = await services.prisma.playerPokemon.findMany({
-          where: { userId: user.id, isInTeam: false, isReleased: false },
-          orderBy: [{ boxNumber: "asc" }, { boxSlot: "asc" }],
-          take: 10,
-          include: { species: true }
-        });
-
-        if (boxed.length === 0) {
-          await message.reply("Sua box esta vazia.");
-          return;
-        }
-
-        await message.reply({ embeds: boxed.map((pokemon) => buildPlayerPokemonEmbed(pokemon, "BOX")) });
+      description: "Mostra a box de Pokemon em paginas.",
+      async execute({ message, services, args }) {
+        await message.reply(
+          await buildTrainerBoxPayload(
+            services,
+            buildTrainerProfileFromMessage(message),
+            parseListPage(args[0])
+          )
+        );
       }
     },
     {
@@ -183,6 +191,11 @@ async function addSpawn(context: Parameters<PrefixCommand["execute"]>[0]): Promi
 
 function splitPipeArgs(raw: string): string[] {
   return raw.split("|").map((part) => part.trim());
+}
+
+function parseListPage(raw: string | undefined): number {
+  const page = Number(raw);
+  return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
 }
 
 function parseChannelId(raw?: string): string | null {

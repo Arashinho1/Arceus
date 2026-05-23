@@ -19,7 +19,7 @@ export function buildMessageCreateHandler(input: {
       } catch (error) {
         console.error("Erro ao executar comando:", error);
         if (message.channel.isSendable()) {
-          await message.reply("Nao consegui executar esse comando agora. O erro foi registrado no console.");
+          await message.reply("Não consegui executar esse comando agora. O erro foi registrado no console.");
         }
       }
       return;

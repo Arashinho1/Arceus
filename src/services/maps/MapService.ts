@@ -53,12 +53,12 @@ export class MapService {
   async addSpawn(input: AddMapSpawnInput): Promise<MapSpawn & { species: PokemonSpecies }> {
     const map = await this.prisma.gameMap.findUnique({ where: { channelId: input.channelId } });
     if (!map) {
-      throw new Error("Este canal ainda nao esta registrado como mapa.");
+      throw new Error("Este canal ainda não está registrado como mapa.");
     }
 
     const species = await this.prisma.pokemonSpecies.findUnique({ where: { slug: input.speciesSlug } });
     if (!species) {
-      throw new Error(`Pokemon nao encontrado no seed: ${input.speciesSlug}`);
+      throw new Error(`Pokémon não encontrado no seed: ${input.speciesSlug}`);
     }
 
     const conditions = (input.conditions ?? {}) as Prisma.InputJsonObject;

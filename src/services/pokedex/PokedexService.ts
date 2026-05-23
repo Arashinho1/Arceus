@@ -241,10 +241,10 @@ export class PokedexService {
     ]);
 
     const name = pickEnglishName(species.names) ?? entry.name;
-    const genus = normalizePokemonText(pickEnglishGenus(species.genera) ?? "Pokemon");
-    const originalFlavorText = pickFlavorText(species.flavor_text_entries) ?? "No Pokedex entry is available for this species.";
+    const genus = normalizePokemonText(pickEnglishGenus(species.genera) ?? "Pokémon");
+    const originalFlavorText = pickFlavorText(species.flavor_text_entries) ?? "No Pokédex entry is available for this species.";
     const translatedFlavorText = await translateToPtBr(originalFlavorText);
-    const flavorText = translatedFlavorText ?? originalFlavorText;
+    const flavorText = normalizePokemonText(translatedFlavorText ?? originalFlavorText);
     const sortedTypes = [...pokemon.types].sort((left, right) => left.slot - right.slot);
     const sortedAbilities = [...pokemon.abilities].sort((left, right) => left.slot - right.slot);
     const evolutionStages = await loadEvolutionStages(species.evolution_chain.url);
@@ -263,7 +263,7 @@ export class PokedexService {
       evolutionStages,
       spriteUrl: pokemon.sprites.front_default,
       artworkUrl: pokemon.sprites.other?.["official-artwork"]?.front_default ?? null,
-      sourceLabel: translatedFlavorText ? "PokeAPI + traducao PT-BR" : "PokeAPI"
+      sourceLabel: translatedFlavorText ? "PokeAPI + tradução PT-BR" : "PokeAPI"
     };
   }
 }
@@ -358,7 +358,7 @@ function formatEvolutionTrigger(detail: PokeApiEvolutionDetail | undefined): str
     return `Felicidade ${detail.min_happiness}`;
   }
   if (detail.min_affection) {
-    return `Afeicao ${detail.min_affection}`;
+    return `Afeição ${detail.min_affection}`;
   }
   if (detail.trade_species) {
     return `Troca por ${formatSpeciesName(detail.trade_species.name)}`;
@@ -510,7 +510,7 @@ function normalizePokemonText(value: string): string {
     .replace(/\f/g, " ")
     .replace(/\n/g, " ")
     .replace(/\s+/g, " ")
-    .replace(/POK(?:e|\u00e9)MON/gi, "Pokemon")
+    .replace(/POK(?:e|\u00e9)MON/gi, "Pokémon")
     .trim();
 }
 

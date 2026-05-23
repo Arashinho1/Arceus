@@ -165,8 +165,8 @@ export async function buildTrainerInventoryPayload(
     .setTitle("Mochila")
     .setDescription(
       inventory.length === 0
-        ? "Sua mochila esta vazia."
-        : "Itens atuais. Use os botoes Ver para abrir os detalhes de cada item."
+        ? "Sua mochila está vazia."
+        : "Itens atuais. Use os botões Ver para abrir os detalhes de cada item."
     );
 
   if (visibleItems.length > 0) {
@@ -266,7 +266,7 @@ export async function handleTrainerMenuInteraction(
 ): Promise<void> {
   const parsed = parseCustomId(interaction.customId);
   if (!parsed) {
-    await interaction.reply({ content: "Esse menu nao e mais valido.", ephemeral: true });
+    await interaction.reply({ content: "Esse menu não é mais válido.", ephemeral: true });
     return;
   }
 
@@ -320,7 +320,7 @@ export async function handleTrainerMenuInteraction(
   }
 
   if (!parsed.subject) {
-    await interaction.followUp({ content: "Nao encontrei o item desse botao.", ephemeral: true });
+    await interaction.followUp({ content: "Não encontrei o item desse botão.", ephemeral: true });
     return;
   }
 
@@ -344,7 +344,7 @@ export async function handleTrainerMenuInteraction(
   if (parsed.action === "target" && interaction.isStringSelectMenu()) {
     const pokemonId = interaction.values[0];
     if (!pokemonId) {
-      await interaction.followUp({ content: "Escolha um Pokemon para usar o item.", ephemeral: true });
+      await interaction.followUp({ content: "Escolha um Pokémon para usar o item.", ephemeral: true });
       return;
     }
 
@@ -434,7 +434,7 @@ async function buildItemDetailPayload(
   });
 
   if (!entry) {
-    return buildTrainerInventoryPayload(services, profile, "Voce nao possui mais esse item.");
+    return buildTrainerInventoryPayload(services, profile, "Você não possui mais esse item.");
   }
 
   const image = await renderItemCardPng(entry);
@@ -465,21 +465,21 @@ async function buildPokemonTargetPayload(
   });
 
   if (!entry) {
-    return { ok: false, message: "Voce nao possui mais esse item." };
+    return { ok: false, message: "Você não possui mais esse item." };
   }
 
   if (!isPokemonTargetItem(entry.item.category)) {
-    return { ok: false, message: `${entry.item.name} nao pode ser usado diretamente em um Pokemon.` };
+    return { ok: false, message: `${entry.item.name} não pode ser usado diretamente em um Pokémon.` };
   }
 
   const team = await loadTeam(services, user.id);
   if (team.length === 0) {
-    return { ok: false, message: "Sua equipe esta vazia." };
+    return { ok: false, message: "Sua equipe está vazia." };
   }
 
   const select = new StringSelectMenuBuilder()
     .setCustomId(customId(profile.discordId, "target", itemId))
-    .setPlaceholder(`Usar ${entry.item.name} em qual Pokemon?`)
+    .setPlaceholder(`Usar ${entry.item.name} em qual Pokémon?`)
     .addOptions(
       team.map((pokemon) => ({
         label: formatPokemonName(pokemon).slice(0, 100),
@@ -491,7 +491,7 @@ async function buildPokemonTargetPayload(
   const embed = new EmbedBuilder()
     .setColor(0x4a90e2)
     .setTitle(`Usar ${entry.item.name}`)
-    .setDescription("Escolha um Pokemon da sua equipe.");
+    .setDescription("Escolha um Pokémon da sua equipe.");
 
   return {
     ok: true,
@@ -564,7 +564,7 @@ async function useInventoryItem(
     });
 
     if (!entry) {
-      return { ok: false, message: "Voce nao possui mais esse item." };
+      return { ok: false, message: "Você não possui mais esse item." };
     }
 
     const pokemon = await tx.playerPokemon.findFirst({
@@ -573,7 +573,7 @@ async function useInventoryItem(
     });
 
     if (!pokemon) {
-      return { ok: false, message: "Esse Pokemon nao esta com voce." };
+      return { ok: false, message: "Esse Pokémon não está com você." };
     }
 
     if (entry.item.category === ItemCategory.HEALING) {
@@ -588,7 +588,7 @@ async function useInventoryItem(
       return useEvolutionItem(tx, entry, pokemon);
     }
 
-    return { ok: false, message: `${entry.item.name} nao pode ser usado diretamente em um Pokemon.` };
+    return { ok: false, message: `${entry.item.name} não pode ser usado diretamente em um Pokémon.` };
   });
 }
 
@@ -599,11 +599,11 @@ async function useHealingItem(
 ): Promise<UseItemResult> {
   const healHp = readNumberData(entry.item.data, "healHp");
   if (!healHp || healHp <= 0) {
-    return { ok: false, message: `${entry.item.name} ainda nao tem efeito de cura configurado.` };
+    return { ok: false, message: `${entry.item.name} ainda não tem efeito de cura configurado.` };
   }
 
   if (pokemon.currentHp >= pokemon.maxHp) {
-    return { ok: false, message: `${formatPokemonName(pokemon)} ja esta com HP cheio.` };
+    return { ok: false, message: `${formatPokemonName(pokemon)} já está com HP cheio.` };
   }
 
   const nextHp = Math.min(pokemon.maxHp, pokemon.currentHp + healHp);
@@ -641,7 +641,7 @@ async function useXpItem(
 
   return {
     ok: true,
-    message: `${entry.item.name} usado em ${formatPokemonName(pokemon)}. Nivel ${pokemon.level} -> ${nextLevel}.`
+    message: `${entry.item.name} usado em ${formatPokemonName(pokemon)}. Nível ${pokemon.level} -> ${nextLevel}.`
   };
 }
 
@@ -655,12 +655,12 @@ async function useEvolutionItem(
   );
 
   if (!evolution) {
-    return { ok: false, message: `${formatPokemonName(pokemon)} nao evolui com ${entry.item.name}.` };
+    return { ok: false, message: `${formatPokemonName(pokemon)} não evolui com ${entry.item.name}.` };
   }
 
   const nextSpecies = await tx.pokemonSpecies.findUnique({ where: { slug: evolution.to } });
   if (!nextSpecies) {
-    return { ok: false, message: `A evolucao ${evolution.to} ainda nao esta cadastrada.` };
+    return { ok: false, message: `A evolução ${evolution.to} ainda não está cadastrada.` };
   }
 
   await tx.playerPokemon.update({
@@ -847,7 +847,7 @@ function buildItemCardSvg(entry: InventoryEntry, spriteDataUri: string | null): 
   <text x="330" y="140" font-family="Consolas, monospace" font-size="24" fill="#dcecff">Qtd: ${entry.quantity} | ${escapeXml(formatItemCategory(entry.item.category))}</text>
   ${descriptionSvg}
   <rect x="48" y="346" width="820" height="62" rx="12" fill="#2c75cc" opacity="0.8"/>
-  <text x="70" y="386" font-family="Consolas, monospace" font-size="24" fill="#f8fbff">Escolha Usar para selecionar um Pokemon da equipe.</text>
+  <text x="70" y="386" font-family="Consolas, monospace" font-size="24" fill="#f8fbff">Escolha Usar para selecionar um Pokémon da equipe.</text>
 </svg>`;
 }
 
@@ -945,10 +945,10 @@ function buildPokemonCollectionEmbed(
   const isBox = mode === "box";
   const embed = new EmbedBuilder()
     .setColor(isBox ? 0x5865f2 : 0xf05f57)
-    .setTitle(isBox ? "Box Pokemon" : "Colecao Pokemon");
+    .setTitle(isBox ? "Box Pokémon" : "Coleção Pokémon");
 
   if (pokemon.length === 0) {
-    embed.setDescription(isBox ? "Sua box esta vazia." : "Voce ainda nao capturou nenhum Pokemon.");
+    embed.setDescription(isBox ? "Sua box está vazia." : "Você ainda não capturou nenhum Pokémon.");
     return embed;
   }
 
@@ -956,7 +956,7 @@ function buildPokemonCollectionEmbed(
   const end = start + pokemon.length - 1;
   embed
     .setDescription(isBox ? buildBoxTable(pokemon) : buildPokemonTable(pokemon))
-    .setFooter({ text: `Mostrando ${start}-${end} de ${total}. Pagina ${currentPage}/${totalPages}.` });
+    .setFooter({ text: `Mostrando ${start}-${end} de ${total}. Página ${currentPage}/${totalPages}.` });
 
   const thumbnail = pokemon
     .map((entry) => entry.shiny ? entry.species.shinySpriteUrl ?? entry.species.spriteUrl : entry.species.spriteUrl)
@@ -971,10 +971,10 @@ function buildPokemonCollectionEmbed(
 function buildPokemonTeamEmbed(pokemon: CollectionPokemon[]): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(0x6b7280)
-    .setTitle("Equipe Pokemon");
+    .setTitle("Equipe Pokémon");
 
   if (pokemon.length === 0) {
-    embed.setDescription("Sua equipe esta vazia.");
+    embed.setDescription("Sua equipe está vazia.");
     return embed;
   }
 
@@ -995,7 +995,7 @@ function buildPokemonTeamEmbed(pokemon: CollectionPokemon[]): EmbedBuilder {
 function buildPokemonTable(pokemon: CollectionPokemon[]): string {
   const header = [
     tableCell("Ref", 8),
-    tableCell("Pokemon", 20),
+    tableCell("Pokémon", 20),
     tableCell("Lv", 4, "right"),
     tableCell("IV%", 7, "right"),
     tableCell("HP", 9, "right"),
@@ -1021,7 +1021,7 @@ function buildTeamTable(pokemon: CollectionPokemon[]): string {
   const header = [
     tableCell("Slot", 5),
     tableCell("Ref", 8),
-    tableCell("Pokemon", 20),
+    tableCell("Pokémon", 20),
     tableCell("Lv", 4, "right"),
     tableCell("IV%", 7, "right"),
     tableCell("HP", 9, "right"),
@@ -1046,7 +1046,7 @@ function buildBoxTable(pokemon: CollectionPokemon[]): string {
   const header = [
     tableCell("Slot", 7),
     tableCell("Ref", 8),
-    tableCell("Pokemon", 20),
+    tableCell("Pokémon", 20),
     tableCell("Lv", 4, "right"),
     tableCell("IV%", 7, "right"),
     tableCell("HP", 9, "right"),
@@ -1116,7 +1116,7 @@ function buildPokemonPaginationRow(ownerDiscordId: string, action: "pokemon" | "
       .setDisabled(true),
     new ButtonBuilder()
       .setCustomId(customId(ownerDiscordId, action, String(Math.min(totalPages, currentPage + 1))))
-      .setLabel("Proxima")
+      .setLabel("Próxima")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(currentPage >= totalPages)
   );
@@ -1272,7 +1272,7 @@ function formatItemCategory(category: ItemCategory): string {
     case ItemCategory.HEALING:
       return "Cura";
     case ItemCategory.EVOLUTION:
-      return "Evolucao";
+      return "Evolução";
     case ItemCategory.XP:
       return "XP";
     case ItemCategory.KEY:
@@ -1288,11 +1288,11 @@ function describeItem(item: Pick<Item, "category" | "data"> & { name: string }):
   const captureBonus = readNumberData(item.data, "captureBonus");
 
   if (item.category === ItemCategory.HEALING && healHp) {
-    return `Recupera ate ${healHp} HP de um Pokemon da equipe.`;
+    return `Recupera até ${healHp} HP de um Pokémon da equipe.`;
   }
 
   if (item.category === ItemCategory.XP && levelGain) {
-    return `Aumenta o nivel de um Pokemon em ${levelGain}.`;
+    return `Aumenta o nível de um Pokémon em ${levelGain}.`;
   }
 
   if (item.category === ItemCategory.POKE_BALL && captureBonus) {
@@ -1300,10 +1300,10 @@ function describeItem(item: Pick<Item, "category" | "data"> & { name: string }):
   }
 
   if (item.category === ItemCategory.EVOLUTION) {
-    return "Item especial usado para evoluir Pokemon compativeis.";
+    return "Item especial usado para evoluir Pokémon compatíveis.";
   }
 
-  return `${item.name} ainda nao possui uma descricao especial.`;
+  return `${item.name} ainda não possui uma descrição especial.`;
 }
 
 function readNumberData(raw: unknown, key: string): number | null {

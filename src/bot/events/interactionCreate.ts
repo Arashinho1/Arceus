@@ -27,7 +27,7 @@ export function buildInteractionCreateHandler(services: AppServices) {
       });
 
       await interaction.reply({
-        content: encounter ? buildEncounterDetailsContent(encounter) : "Esse encontro nao existe mais.",
+        content: encounter ? buildEncounterDetailsContent(encounter) : "Esse encontro não existe mais.",
         ephemeral: true
       });
       return;
@@ -62,7 +62,7 @@ export function buildInteractionCreateHandler(services: AppServices) {
         await interaction.reply({ content: `Batalha iniciada: ${battle.id}`, ephemeral: true });
       } catch (error) {
         await interaction.reply({
-          content: error instanceof Error ? error.message : "Nao foi possivel iniciar a batalha.",
+          content: error instanceof Error ? error.message : "Não foi possível iniciar a batalha.",
           ephemeral: true
         });
       }

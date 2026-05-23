@@ -14,7 +14,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
   const commands: PrefixCommand[] = [
     {
       name: "ping",
-      description: "Testa se o bot esta online.",
+      description: "Testa se o bot está online.",
       async execute({ message }) {
         await message.reply("Pong.");
       }
@@ -29,7 +29,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
     },
     {
       name: "equipe",
-      description: "Mostra os Pokemon na equipe.",
+      description: "Mostra os Pokémon na equipe.",
       async execute({ message }) {
         const user = await services.user.ensureUser({
           discordId: message.author.id,
@@ -43,7 +43,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
         });
 
         if (team.length === 0) {
-          await message.reply("Sua equipe esta vazia.");
+          await message.reply("Sua equipe está vazia.");
           return;
         }
 
@@ -53,14 +53,14 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
     {
       name: "pokedex",
       aliases: ["dex", "pokemon", "p"],
-      description: "Mostra a Pokedex de Kanto.",
+      description: "Mostra a Pokédex de Kanto.",
       async execute({ message, services, rawArgs, prefix }) {
         await message.reply(await buildPokedexPayload(services, prefix, rawArgs));
       }
     },
     {
       name: "box",
-      description: "Mostra a box de Pokemon em paginas.",
+      description: "Mostra a box de Pokémon em páginas.",
       async execute({ message, services, args }) {
         await message.reply(
           await buildTrainerBoxPayload(
@@ -73,7 +73,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
     },
     {
       name: "info",
-      description: "Mostra a ficha visual de um Pokemon pela ref.",
+      description: "Mostra a ficha visual de um Pokémon pela ref.",
       async execute({ message, services, args, prefix }) {
         const ref = args[0];
         if (!ref) {
@@ -87,7 +87,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
     {
       name: "favoritar",
       aliases: ["fav"],
-      description: "Marca um Pokemon como favorito pela ref.",
+      description: "Marca um Pokémon como favorito pela ref.",
       async execute({ message, services, args, prefix }) {
         const ref = args[0];
         if (!ref) {
@@ -101,7 +101,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
     {
       name: "desfavoritar",
       aliases: ["unfav"],
-      description: "Remove o favorito de um Pokemon pela ref.",
+      description: "Remove o favorito de um Pokémon pela ref.",
       async execute({ message, services, args, prefix }) {
         const ref = args[0];
         if (!ref) {
@@ -129,7 +129,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
         });
 
         if (inventory.length === 0) {
-          await message.reply("Seu inventario esta vazio.");
+          await message.reply("Seu inventário está vazio.");
           return;
         }
 
@@ -138,7 +138,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
     },
     {
       name: "viajar",
-      description: "Viaja para uma localizacao vizinha do mapa atual.",
+      description: "Viaja para uma localização vizinha do mapa atual.",
       async execute({ message, services, rawArgs, prefix }) {
         const result = await services.travel.travel({
           guildId: message.guildId,
@@ -186,7 +186,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
         }
 
         if (!context.message.member?.permissions.has(PermissionFlagsBits.ManageGuild)) {
-          await context.message.reply("Voce precisa da permissao Gerenciar Servidor para usar este comando.");
+          await context.message.reply("Você precisa da permissão Gerenciar Servidor para usar este comando.");
           return;
         }
 
@@ -203,7 +203,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
         await context.message.reply(
           [
             `Uso: ${context.prefix}mapa`,
-            `Uso: ${context.prefix}mapa criar #canal | Nome | bioma | min | max | descricao`,
+            `Uso: ${context.prefix}mapa criar #canal | Nome | bioma | min | max | descrição`,
             `Uso: ${context.prefix}mapa spawn #canal | pokemon_slug | peso | min | max | shinyChance`
           ].join("\n")
         );
@@ -228,7 +228,7 @@ async function createMap(context: Parameters<PrefixCommand["execute"]>[0]): Prom
   const channelId = parseChannelId(channelRaw);
 
   if (!context.message.guildId || !channelId || !name || !biome) {
-    await context.message.reply(`Uso: ${context.prefix}mapa criar #canal | Rota 01 | grama | 1 | 8 | descricao`);
+    await context.message.reply(`Uso: ${context.prefix}mapa criar #canal | Rota 01 | grama | 1 | 8 | descrição`);
     return;
   }
 
@@ -308,22 +308,22 @@ async function setPokemonFavorite(
   });
 
   if (matches.length === 0) {
-    return "Nao encontrei nenhum Pokemon seu com essa ref.";
+    return "Não encontrei nenhum Pokémon seu com essa ref.";
   }
 
   if (matches.length > 1) {
-    return "Essa ref encontrou mais de um Pokemon. Use mais caracteres do ID exibido em .box ou .menu.";
+    return "Essa ref encontrou mais de um Pokémon. Use mais caracteres do ID exibido em .box ou .menu.";
   }
 
   const pokemon = matches[0];
   if (!pokemon) {
-    return "Nao encontrei nenhum Pokemon seu com essa ref.";
+    return "Não encontrei nenhum Pokémon seu com essa ref.";
   }
 
   if (pokemon.isFavorite === isFavorite) {
     return isFavorite
-      ? `${pokemon.species.name} ja esta marcado como favorito.`
-      : `${pokemon.species.name} ja nao esta marcado como favorito.`;
+      ? `${pokemon.species.name} já está marcado como favorito.`
+      : `${pokemon.species.name} já não está marcado como favorito.`;
   }
 
   await services.prisma.playerPokemon.update({
@@ -332,8 +332,8 @@ async function setPokemonFavorite(
   });
 
   return isFavorite
-    ? `${pokemon.species.name} agora esta marcado como favorito.`
-    : `${pokemon.species.name} nao esta mais marcado como favorito.`;
+    ? `${pokemon.species.name} agora está marcado como favorito.`
+    : `${pokemon.species.name} não está mais marcado como favorito.`;
 }
 
 function parseChannelId(raw?: string): string | null {

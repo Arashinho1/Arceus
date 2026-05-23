@@ -90,7 +90,7 @@ const LANDMARK_POINTS: MapPoint[] = [
   { name: "Cerulean Cave", x: 820, y: 162, kind: "dungeon", label: { dx: -18, dy: -34, anchor: "middle", width: 122, size: 12 } },
   { name: "Power Plant", x: 1152, y: 222, kind: "landmark", label: { dx: 38, dy: -10, anchor: "start", width: 108, size: 12 } },
   { name: "Rock Tunnel", x: 1150, y: 324, kind: "dungeon", label: { dx: 36, dy: -18, anchor: "start", width: 104, size: 12 } },
-  { name: "Pokemon Tower", x: 1292, y: 362, kind: "landmark", label: { dx: -28, dy: -36, anchor: "middle", width: 126, size: 12 } },
+  { name: "Pokémon Tower", x: 1292, y: 362, kind: "landmark", label: { dx: -28, dy: -36, anchor: "middle", width: 126, size: 12 } },
   { name: "Diglett's Cave", x: 428, y: 286, kind: "dungeon", label: { dx: 32, dy: -2, anchor: "start", width: 118, size: 12 } },
   { name: "Underground Path", x: 836, y: 382, kind: "landmark", label: { dx: -40, dy: 38, anchor: "middle", width: 146, size: 12 } },
   { name: "Silph Co.", x: 972, y: 520, kind: "landmark", label: { dx: 50, dy: 2, anchor: "start", width: 82, size: 12 } },
@@ -98,7 +98,7 @@ const LANDMARK_POINTS: MapPoint[] = [
   { name: "S.S. Anne", x: 984, y: 694, kind: "landmark", label: { dx: 42, dy: 0, anchor: "start", width: 86, size: 12 } },
   { name: "Safari Zone", x: 768, y: 742, kind: "landmark", label: { dx: -18, dy: -34, anchor: "middle", width: 102, size: 12 } },
   { name: "Seafoam Islands", x: 606, y: 902, kind: "dungeon", label: { dx: 16, dy: 38, anchor: "middle", width: 132, size: 12 } },
-  { name: "Pokemon Mansion", x: 354, y: 946, kind: "dungeon", label: { dx: -16, dy: 38, anchor: "middle", width: 140, size: 12 } },
+  { name: "Pokémon Mansion", x: 354, y: 946, kind: "dungeon", label: { dx: -16, dy: 38, anchor: "middle", width: 140, size: 12 } },
   { name: "Victory Road", x: 118, y: 506, kind: "dungeon", label: { dx: 36, dy: -32, anchor: "middle", width: 108, size: 12 } }
 ];
 
@@ -162,7 +162,7 @@ const STATIC_IMAGE_MARKERS: StaticImageMarker[] = [
   { names: ["Rock Tunnel"], xRatio: 0.784, yRatio: 0.34 },
   { names: ["Victory Road"], xRatio: 0.053, yRatio: 0.454 },
   { names: ["Seafoam Islands", "Seafoam"], xRatio: 0.401, yRatio: 0.793 },
-  { names: ["Pokemon Mansion", "Mansion"], xRatio: 0.298, yRatio: 0.935 },
+  { names: ["Pokemon Mansion", "Pokémon Mansion", "Mansion"], xRatio: 0.298, yRatio: 0.935 },
   { names: ["Route 1", "R1"], xRatio: 0.304, yRatio: 0.553 },
   { names: ["Route 2", "R2"], xRatio: 0.199, yRatio: 0.367 },
   { names: ["Route 3", "R3"], xRatio: 0.358, yRatio: 0.256 },
@@ -194,8 +194,8 @@ export async function buildKantoMapCardPayload(options: KantoMapPayloadOptions =
   const image = await renderKantoMapPng(options.currentLocationName);
   const currentLocation = options.currentLocationName?.trim();
   const description = currentLocation
-    ? `Canal atual vinculado a ${currentLocation}. O marcador vermelho mostra essa localizacao.`
-    : "Regiao inicial de exploracao. Cidades, rotas e marcos aparecem direto no mapa.";
+    ? `Canal atual vinculado a ${currentLocation}. O marcador vermelho mostra essa localização.`
+    : "Região inicial de exploração. Cidades, rotas e marcos aparecem direto no mapa.";
 
   return {
     embeds: [
@@ -346,7 +346,7 @@ function findMarkerDefinition(locationName: string): StaticImageMarker | null {
 
 function buildCurrentLocationOverlay(width: number, height: number, marker: CurrentLocationMarker): string {
   const title = truncate(marker.name, 28);
-  const label = `Voce esta aqui: ${title}`;
+  const label = `Você está aqui: ${title}`;
   const labelWidth = Math.min(width - 32, Math.max(230, label.length * 13 + 32));
   const labelHeight = 42;
   const labelX = clamp(marker.x - labelWidth / 2, 16, width - labelWidth - 16);

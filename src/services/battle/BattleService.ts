@@ -29,7 +29,7 @@ export class BattleService {
     });
 
     if (!activePokemon) {
-      throw new Error("Voce precisa ter pelo menos um Pokemon na equipe.");
+      throw new Error("Você precisa ter pelo menos um Pokémon na equipe.");
     }
 
     const encounter = await this.prisma.encounter.findUnique({
@@ -38,7 +38,7 @@ export class BattleService {
     });
 
     if (!encounter) {
-      throw new Error("Encontro nao encontrado.");
+      throw new Error("Encontro não encontrado.");
     }
 
     const battle = await this.prisma.battle.create({

@@ -57,7 +57,7 @@ export class CaptureService {
         return {
           ok: false,
           reason: "NO_ENCOUNTER",
-          message: "Esse encontro ja acabou ou nao existe mais."
+          message: "Esse encontro já acabou ou não existe mais."
         };
       }
 
@@ -66,7 +66,7 @@ export class CaptureService {
         return {
           ok: false,
           reason: "INVALID_ITEM",
-          message: "Esse item nao e uma Poke Ball valida."
+          message: "Esse item não é uma Poke Ball válida."
         };
       }
 
@@ -83,7 +83,7 @@ export class CaptureService {
         return {
           ok: false,
           reason: "NO_BALL",
-          message: `Voce nao tem ${item.name}.`
+          message: `Você não tem ${item.name}.`
         };
       }
 

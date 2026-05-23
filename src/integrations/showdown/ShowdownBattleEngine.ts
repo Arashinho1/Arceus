@@ -8,6 +8,6 @@ export class ShowdownBattleEngine implements BattleEnginePort {
     // Future adapter: create a Pokemon Showdown room, send teams through protocol,
     // and mirror battle updates back into Discord embeds/buttons.
     void input;
-    throw new Error("Pokemon Showdown integration is not implemented yet.");
+    throw new Error("Pokémon Showdown integration is not implemented yet.");
   }
 }

@@ -55,7 +55,7 @@ const KANTO_LOCATIONS: KantoLocation[] = [
   loc("Route 9", "route", ["rota 9", "r9"]),
   loc("Power Plant", "landmark", ["usina", "powerplant"]),
   loc("Route 10", "route", ["rota 10", "r10"]),
-  loc("Rock Tunnel", "dungeon", ["tunel rochoso"]),
+  loc("Rock Tunnel", "dungeon", ["túnel rochoso"]),
   loc("Lavender Town", "town", ["lavender", "cidade de lavender", "vila lavender"], true),
   loc("Pokemon Tower", "landmark", ["torre pokemon"]),
   loc("Route 8", "route", ["rota 8", "r8"]),
@@ -76,11 +76,11 @@ const KANTO_LOCATIONS: KantoLocation[] = [
   loc("Seafoam Islands", "dungeon", ["seafoam", "ilhas seafoam"]),
   loc("Route 20", "route", ["rota 20", "r20"]),
   loc("Cinnabar Island", "town", ["cinnabar", "ilha cinnabar"], true),
-  loc("Pokemon Mansion", "dungeon", ["mansion", "mansao pokemon"]),
+  loc("Pokemon Mansion", "dungeon", ["mansion", "mansão pokemon"]),
   loc("Route 21", "route", ["rota 21", "r21"]),
   loc("Route 22", "route", ["rota 22", "r22"]),
   loc("Route 23", "route", ["rota 23", "r23"]),
-  loc("Victory Road", "dungeon", ["estrada da vitoria"]),
+  loc("Victory Road", "dungeon", ["estrada da vitória"]),
   loc("Indigo Plateau", "league", ["indigo", "planalto indigo"], true),
   loc("Cerulean Cave", "dungeon", ["unknown dungeon", "caverna de cerulean"])
 ];
@@ -196,9 +196,9 @@ export class TravelService {
     return {
       ok: true,
       message: [
-        `Voce viajou de **${sourceMap.name}** para **${targetMap.map.name}**.`,
-        `Siga para <#${targetMap.map.channelId}> para continuar a exploracao.`,
-        `De la, locais possiveis: ${nextLocations}.`
+        `Você viajou de **${sourceMap.name}** para **${targetMap.map.name}**.`,
+        `Siga para <#${targetMap.map.channelId}> para continuar a exploração.`,
+        `De lá, locais possíveis: ${nextLocations}.`
       ].join("\n")
     };
   }
@@ -226,7 +226,7 @@ export class TravelService {
     if (!canFly) {
       return {
         ok: false,
-        message: "Voce precisa ter na equipe um Pokemon que saiba **Fly** para usar esse comando."
+        message: "Você precisa ter na equipe um Pokémon que saiba **Fly** para usar esse comando."
       };
     }
 
@@ -239,7 +239,7 @@ export class TravelService {
         ok: true,
         message: targets
           ? `Use ${input.prefix}fly <cidade>. Destinos configurados: ${targets}.`
-          : "Nenhuma cidade/vila com canal configurado esta disponivel para Fly."
+          : "Nenhuma cidade/vila com canal configurado está disponível para Fly."
       };
     }
 
@@ -247,7 +247,7 @@ export class TravelService {
     if (!target) {
       return {
         ok: false,
-        message: `Nao encontrei essa cidade nos mapas configurados. Use ${input.prefix}fly para ver os destinos.`
+        message: `Não encontrei essa cidade nos mapas configurados. Use ${input.prefix}fly para ver os destinos.`
       };
     }
 
@@ -255,7 +255,7 @@ export class TravelService {
     if (!targetLocation?.flyTarget) {
       return {
         ok: false,
-        message: "Fly so pode levar para cidades, vilas ou pontos principais com canal configurado."
+        message: "Fly só pode levar para cidades, vilas ou pontos principais com canal configurado."
       };
     }
 
@@ -265,7 +265,7 @@ export class TravelService {
       ok: true,
       message: [
         `${canFly.species.name} usou **Fly**.`,
-        `Voce voou de **${sourceMap.name}** para **${target.name}**.`,
+        `Você voou de **${sourceMap.name}** para **${target.name}**.`,
         `Siga para <#${target.channelId}>.`
       ].join("\n")
     };
@@ -290,7 +290,7 @@ export class TravelService {
     if (!sourceMap || !sourceMap.isActive) {
       return {
         ok: false,
-        message: "Este canal nao esta registrado como uma localizacao ativa do mapa."
+        message: "Este canal não está registrado como uma localização ativa do mapa."
       };
     }
 
@@ -298,7 +298,7 @@ export class TravelService {
     if (!sourceLocation) {
       return {
         ok: false,
-        message: `A localizacao **${sourceMap.name}** nao foi reconhecida na rota de Kanto. Ajuste o nome do mapa ou registre uma localizacao valida.`
+        message: `A localização **${sourceMap.name}** não foi reconhecida na rota de Kanto. Ajuste o nome do mapa ou registre uma localização válida.`
       };
     }
 
@@ -343,7 +343,7 @@ export class TravelService {
       if (!previousProgress.previousChannelId) {
         return {
           ok: false,
-          message: "Voce ainda nao tem uma localizacao anterior registrada."
+          message: "Você ainda não tem uma localização anterior registrada."
         };
       }
 
@@ -351,7 +351,7 @@ export class TravelService {
       if (!previousMap) {
         return {
           ok: false,
-          message: "Sua localizacao anterior nao esta mais configurada como mapa ativo."
+          message: "Sua localização anterior não está mais configurada como mapa ativo."
         };
       }
 
@@ -365,20 +365,20 @@ export class TravelService {
       }
 
       return {
-          ok: false,
-          message: [
-            "Essa localizacao tem mais de um caminho. Escolha o destino pelo nome.",
+        ok: false,
+        message: [
+          "Essa localização tem mais de um caminho. Escolha o destino pelo nome.",
           this.describeTravel(sourceMap, sourceLocation, activeMaps, prefix)
-          ].join("\n")
-        };
-      }
+        ].join("\n")
+      };
+    }
 
     const target = this.resolveConfiguredMap(rawDestination, activeMaps);
     if (!target) {
       return {
         ok: false,
         message: [
-          "Nao encontrei esse destino entre os canais de mapa configurados.",
+          "Não encontrei esse destino entre os canais de mapa configurados.",
           this.describeTravel(sourceMap, sourceLocation, activeMaps, prefix)
         ].join("\n")
       };
@@ -397,7 +397,7 @@ export class TravelService {
     if (!targetLocation) {
       return {
         ok: false,
-        message: `O destino **${targetMap.name}** nao foi reconhecido na rota de Kanto.`
+        message: `O destino **${targetMap.name}** não foi reconhecido na rota de Kanto.`
       };
     }
 
@@ -407,8 +407,8 @@ export class TravelService {
       return {
         ok: false,
         message: allowed
-          ? `Voce nao pode viajar direto de **${sourceMap.name}** para **${targetMap.name}**. Caminhos disponiveis: ${allowed}.`
-          : `Voce nao pode viajar direto de **${sourceMap.name}** para **${targetMap.name}**. Nenhum vizinho esta configurado.`
+          ? `Você não pode viajar direto de **${sourceMap.name}** para **${targetMap.name}**. Caminhos disponíveis: ${allowed}.`
+          : `Você não pode viajar direto de **${sourceMap.name}** para **${targetMap.name}**. Nenhum vizinho está configurado.`
       };
     }
 
@@ -425,8 +425,8 @@ export class TravelService {
     const formattedNeighbors = this.formatConfiguredMaps(neighbors);
 
     return [
-      `Voce esta em **${sourceMap.name}**.`,
-      `Locais possiveis: ${formattedNeighbors}.`,
+      `Você está em **${sourceMap.name}**.`,
+      `Locais possíveis: ${formattedNeighbors}.`,
       `Use ${prefix}viajar <destino> ou ${prefix}viajar voltar.`
     ].join("\n");
   }
@@ -480,8 +480,8 @@ export class TravelService {
     return {
       ok: false,
       message: [
-        `Sua localizacao registrada e **${currentLocation}**.`,
-        `Para evitar salto de mapa, use os comandos no canal correto ou use ${prefix}fly <cidade> se tiver um Pokemon com Fly.`
+        `Sua localização registrada é **${currentLocation}**.`,
+        `Para evitar salto de mapa, use os comandos no canal correto ou use ${prefix}fly <cidade> se tiver um Pokémon com Fly.`
       ].join("\n")
     };
   }

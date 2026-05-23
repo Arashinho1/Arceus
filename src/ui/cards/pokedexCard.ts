@@ -55,10 +55,10 @@ export async function buildPokedexPayload(
         embeds: [
           new EmbedBuilder()
             .setColor(0x2f80d0)
-            .setTitle("Pokedex de Kanto")
+            .setTitle("Pokédex de Kanto")
             .setDescription(`Use \`${prefix}dex pikachu\` ou \`${prefix}dex 25\` para abrir uma ficha.`)
             .setImage(`attachment://${INDEX_FILE_NAME}`)
-            .setFooter({ text: `Kanto: ${entries.length} especies | Fonte: PokeAPI` })
+            .setFooter({ text: `Kanto: ${entries.length} espécies | Fonte: PokeAPI` })
         ],
         files: [new AttachmentBuilder(image, { name: INDEX_FILE_NAME })]
       };
@@ -66,7 +66,7 @@ export async function buildPokedexPayload(
 
     const details = await services.pokedex.getKantoDetails(query);
     if (!details) {
-      return { content: `Nao encontrei essa especie na Pokedex de Kanto. Use \`${prefix}pokedex\` para ver a lista.` };
+      return { content: `Não encontrei essa espécie na Pokédex de Kanto. Use \`${prefix}pokedex\` para ver a lista.` };
     }
 
     const areas = await loadConfiguredSpawnAreas(services, details.slug);
@@ -82,8 +82,8 @@ export async function buildPokedexPayload(
       files: [new AttachmentBuilder(image, { name: ENTRY_FILE_NAME })]
     };
   } catch (error) {
-    console.error("Erro ao carregar Pokedex:", error);
-    return { content: "Nao consegui consultar a Pokedex agora. Tente novamente em alguns instantes." };
+    console.error("Erro ao carregar Pokédex:", error);
+    return { content: "Não consegui consultar a Pokédex agora. Tente novamente em alguns instantes." };
   }
 }
 
@@ -190,7 +190,7 @@ function buildKantoIndexSvg(
   <rect width="${INDEX_WIDTH}" height="${height}" fill="#1d3556"/>
   <rect x="18" y="18" width="${INDEX_WIDTH - 36}" height="${height - 36}" rx="0" fill="url(#shell)" stroke="#07101e" stroke-width="8"/>
   <rect x="40" y="42" width="${INDEX_WIDTH - 80}" height="${height - 120}" fill="#fff0bd" stroke="#12335a" stroke-width="5"/>
-  <text x="68" y="104" font-family="Consolas, Arial, sans-serif" font-size="32" font-weight="900" fill="#173056">KANTO POKEDEX</text>
+  <text x="68" y="104" font-family="Consolas, Arial, sans-serif" font-size="32" font-weight="900" fill="#173056">POKÉDEX DE KANTO</text>
   <text x="${INDEX_WIDTH - 68}" y="104" text-anchor="end" font-family="Consolas, Arial, sans-serif" font-size="22" font-weight="800" fill="#9b1726">ID 1-151</text>
   ${rows}
   <text x="64" y="${height - 48}" font-family="Arial, sans-serif" font-size="22" font-weight="800" fill="#f9fbff">Use ${escapeXml(prefix)}dex 25 ou ${escapeXml(prefix)}dex pikachu</text>
@@ -262,7 +262,7 @@ function buildPokedexEntrySvg(
   <rect x="36" y="644" width="${ENTRY_WIDTH - 72}" height="280" fill="url(#desc-fill)" stroke="#111820" stroke-width="4"/>
   <rect x="36" y="644" width="${ENTRY_WIDTH - 72}" height="48" fill="#101820" opacity="0.94"/>
   <rect x="48" y="658" width="10" height="20" fill="${theme.accent}"/>
-  <text x="68" y="683" font-family="Arial, sans-serif" font-size="24" font-weight="900" fill="#ffffff">DESCRICAO</text>
+  <text x="68" y="683" font-family="Arial, sans-serif" font-size="24" font-weight="900" fill="#ffffff">DESCRIÇÃO</text>
   ${flavorLines.map((line, index) => `
     <text x="58" y="${727 + index * 25}" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#111111">${escapeXml(line)}</text>`).join("")}
   <text x="58" y="964" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#233a52">Fonte: ${escapeXml(details.sourceLabel)} | ${escapeXml(details.sourceUrl)}</text>
@@ -290,12 +290,12 @@ function buildEvolutionPanel(
 
   if (visibleStages.length === 0) {
     return `
-    ${buildPanelFrame(x, y, width, "EVOLUCAO", theme, 164)}
-    <text x="${x + 20}" y="${y + 98}" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="${theme.deep}">Sem evolucao registrada.</text>`;
+    ${buildPanelFrame(x, y, width, "EVOLUÇÃO", theme, 164)}
+    <text x="${x + 20}" y="${y + 98}" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="${theme.deep}">Sem evolução registrada.</text>`;
   }
 
   return `
-  ${buildPanelFrame(x, y, width, `EVOLUCAO${headerExtra}`, theme, 164)}
+  ${buildPanelFrame(x, y, width, `EVOLUÇÃO${headerExtra}`, theme, 164)}
   ${visibleStages.map((stage, index) => {
     const stageX = startX + index * (cardWidth + 34);
     const nextStage = visibleStages[index + 1];
@@ -377,11 +377,11 @@ function buildAreasPanel(x: number, y: number, areas: PokedexSpawnArea[], theme:
   const visibleAreas = areas.slice(0, 3);
   const lines = visibleAreas.length > 0
     ? visibleAreas.map((area) => `${area.name} (${area.biome}) Lv.${area.minLevel}-${area.maxLevel}`)
-    : ["Nao configurado"];
-  const extra = areas.length > visibleAreas.length ? [`+${areas.length - visibleAreas.length} area(s)`] : [];
+    : ["Não configurado"];
+  const extra = areas.length > visibleAreas.length ? [`+${areas.length - visibleAreas.length} área(s)`] : [];
 
   return `
-  ${buildPanelFrame(x, y, 286, "AREAS", theme)}
+  ${buildPanelFrame(x, y, 286, "ÁREAS", theme)}
   ${[...lines, ...extra].slice(0, 4).map((line, index) => `
     <text x="${x + 20}" y="${y + 66 + index * 22}" font-family="Arial, sans-serif" font-size="17" font-weight="900" fill="${index === 0 ? theme.deep : "#111111"}">${escapeXml(truncate(line, 28))}</text>`).join("")}`;
 }

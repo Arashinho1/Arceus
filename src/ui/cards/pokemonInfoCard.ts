@@ -72,16 +72,16 @@ export async function buildPokemonInfoPayload(
   });
 
   if (matches.length === 0) {
-    return { content: "Nao encontrei nenhum Pokemon seu com essa ref." };
+    return { content: "Não encontrei nenhum Pokémon seu com essa ref." };
   }
 
   if (matches.length > 1) {
-    return { content: "Essa ref encontrou mais de um Pokemon. Use mais caracteres do ID exibido em .box ou .menu." };
+    return { content: "Essa ref encontrou mais de um Pokémon. Use mais caracteres do ID exibido em .box ou .menu." };
   }
 
   const pokemon = matches[0];
   if (!pokemon) {
-    return { content: "Nao encontrei nenhum Pokemon seu com essa ref." };
+    return { content: "Não encontrei nenhum Pokémon seu com essa ref." };
   }
 
   const [originalTrainer, evolutions] = await Promise.all([
@@ -173,15 +173,15 @@ function buildPokemonInfoSvg(
   const details: Array<[string, string]> = [
     ["Nature", pokemon.nature],
     ["Ability", pokemon.ability],
-    ["Genero", formatGender(pokemon.gender)],
+    ["Gênero", formatGender(pokemon.gender)],
     ["OT", input.originalTrainerName],
     ["Origem", formatOrigin(pokemon)],
     ["Captura", formatDateTime(pokemon.createdAt)],
     ["Status", formatStatus(pokemon.status)],
-    ["Evolucao", input.evolutions[0] ? formatEvolutionRule(input.evolutions[0].rule, input.evolutions[0].name) : "Linha final"]
+    ["Evolução", input.evolutions[0] ? formatEvolutionRule(input.evolutions[0].rule, input.evolutions[0].name) : "Linha final"]
   ];
   const ballLabel = pokemon.caughtBallName ?? "Sem registro";
-  const favoriteLabel = pokemon.isFavorite ? "Favorito: Sim" : "Favorito: Nao";
+  const favoriteLabel = pokemon.isFavorite ? "Favorito: Sim" : "Favorito: Não";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${INFO_CARD_WIDTH}" height="${INFO_CARD_HEIGHT}" viewBox="0 0 ${INFO_CARD_WIDTH} ${INFO_CARD_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
@@ -268,9 +268,9 @@ function buildPokemonInfoSvg(
 
   <g>
     <rect x="428" y="780" width="1064" height="200" rx="16" fill="url(#panel-bg)" stroke="#25577c" stroke-width="2"/>
-    <text x="494" y="815" font-family="Arial, sans-serif" font-size="24" font-weight="800" fill="#c8d7e8">Linha de Evolucao</text>
+    <text x="494" y="815" font-family="Arial, sans-serif" font-size="24" font-weight="800" fill="#c8d7e8">Linha de Evolução</text>
     ${buildEvolutionLine(pokemon, pokemonImage, input.evolutions, evolutionImages, theme)}
-    <text x="462" y="1005" font-family="Arial, sans-serif" font-size="17" fill="#93a9bd">Algumas evolucoes podem exigir itens ou requisitos especificos.</text>
+    <text x="462" y="1005" font-family="Arial, sans-serif" font-size="17" fill="#93a9bd">Algumas evoluções podem exigir itens ou requisitos específicos.</text>
   </g>
 </svg>`;
 }
@@ -486,7 +486,7 @@ function formatGender(gender: PokemonGender): string {
     case PokemonGender.FEMALE:
       return "Feminino";
     default:
-      return "Sem genero";
+      return "Sem gênero";
   }
 }
 

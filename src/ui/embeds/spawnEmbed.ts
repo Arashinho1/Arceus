@@ -15,10 +15,10 @@ export function buildSpawnEmbed(encounter: Encounter, species: PokemonSpecies): 
   const embed = new EmbedBuilder()
     .setColor(encounter.shiny ? 0xf7d154 : 0x4caf50)
     .setTitle(`Um ${species.name}${shinyText} selvagem apareceu!`)
-    .setDescription("Escolha uma acao antes que o encontro expire.")
+    .setDescription("Escolha uma ação antes que o encontro expire.")
     .addFields(
       { name: "Level", value: String(encounter.level), inline: true },
-      { name: "Genero", value: formatGender(encounter.gender), inline: true },
+      { name: "Gênero", value: formatGender(encounter.gender), inline: true },
       { name: "Nature", value: encounter.nature, inline: true },
       { name: "Ability", value: encounter.ability, inline: true },
       { name: "HP", value: `${encounter.currentHp}/${encounter.maxHp}`, inline: true },
@@ -75,9 +75,9 @@ function formatGender(gender: string): string {
     case "MALE":
       return "Macho";
     case "FEMALE":
-      return "Femea";
+      return "Fêmea";
     default:
-      return "Sem genero";
+      return "Sem gênero";
   }
 }
 

@@ -28,8 +28,8 @@ const ITEM_CARD_HEIGHT = 460;
 const MAX_INVENTORY_BUTTONS = 20;
 const POKEMON_LIST_PAGE_SIZE = 20;
 
-type MenuAction = "card" | "bag" | "pokemon" | "box" | "map" | "view" | "use" | "target" | "close";
-type MenuTab = "card" | "bag" | "pokemon" | "box" | "map";
+type MenuAction = "card" | "bag" | "team" | "pokemon" | "box" | "map" | "view" | "use" | "target" | "close";
+type MenuTab = "card" | "bag" | "team" | "pokemon" | "box" | "map";
 type MenuComponentRow = ActionRowBuilder<MessageActionRowComponentBuilder>;
 
 export type TrainerMenuProfile = {
@@ -198,6 +198,36 @@ export async function buildTrainerPokemonListPayload(
   return buildTrainerPokemonCollectionPayload(services, profile, "pokemon", page);
 }
 
+export async function buildTrainerTeamPayload(
+  services: AppServices,
+  profile: TrainerMenuProfile
+): Promise<TrainerMenuPayload> {
+  const user = await services.user.ensureUser({
+    discordId: profile.discordId,
+    username: profile.username
+  });
+  const team = await services.prisma.playerPokemon.findMany({
+    where: { userId: user.id, isInTeam: true, isReleased: false },
+    orderBy: { teamSlot: "asc" },
+    take: 6,
+    include: {
+      species: {
+        select: {
+          name: true,
+          types: true,
+          spriteUrl: true,
+          shinySpriteUrl: true
+        }
+      }
+    }
+  });
+
+  return {
+    embeds: [buildPokemonTeamEmbed(team)],
+    components: [buildNavRow(profile.discordId, "team")]
+  };
+}
+
 export async function buildTrainerBoxPayload(
   services: AppServices,
   profile: TrainerMenuProfile,
@@ -256,6 +286,11 @@ export async function handleTrainerMenuInteraction(
 
   if (parsed.action === "bag") {
     await editTrainerMenuReply(interaction, await buildTrainerInventoryPayload(services, profile));
+    return;
+  }
+
+  if (parsed.action === "team") {
+    await editTrainerMenuReply(interaction, await buildTrainerTeamPayload(services, profile));
     return;
   }
 
@@ -933,6 +968,30 @@ function buildPokemonCollectionEmbed(
   return embed;
 }
 
+function buildPokemonTeamEmbed(pokemon: CollectionPokemon[]): EmbedBuilder {
+  const embed = new EmbedBuilder()
+    .setColor(0x6b7280)
+    .setTitle("Equipe Pokemon");
+
+  if (pokemon.length === 0) {
+    embed.setDescription("Sua equipe esta vazia.");
+    return embed;
+  }
+
+  embed
+    .setDescription(buildTeamTable(pokemon))
+    .setFooter({ text: `Equipe atual: ${pokemon.length}/6.` });
+
+  const thumbnail = pokemon
+    .map((entry) => entry.shiny ? entry.species.shinySpriteUrl ?? entry.species.spriteUrl : entry.species.spriteUrl)
+    .find((url): url is string => Boolean(url));
+  if (thumbnail) {
+    embed.setThumbnail(thumbnail);
+  }
+
+  return embed;
+}
+
 function buildPokemonTable(pokemon: CollectionPokemon[]): string {
   const header = [
     tableCell("Ref", 8),
@@ -951,6 +1010,31 @@ function buildPokemonTable(pokemon: CollectionPokemon[]): string {
       tableCell(formatIvPercent(entry.ivs), 7, "right"),
       tableCell(`${entry.currentHp}/${entry.maxHp}`, 9, "right"),
       tableCell(formatPokemonLocation(entry), 8),
+      tableCell(formatPokemonTags(entry), 7)
+    ].join(" ")
+  );
+
+  return codeBlock([header, ...rows]);
+}
+
+function buildTeamTable(pokemon: CollectionPokemon[]): string {
+  const header = [
+    tableCell("Slot", 5),
+    tableCell("Ref", 8),
+    tableCell("Pokemon", 20),
+    tableCell("Lv", 4, "right"),
+    tableCell("IV%", 7, "right"),
+    tableCell("HP", 9, "right"),
+    tableCell("Tags", 7)
+  ].join(" ");
+  const rows = pokemon.map((entry) =>
+    [
+      tableCell(formatTeamSlot(entry), 5),
+      tableCell(shortPokemonRef(entry.id), 8),
+      tableCell(formatListPokemonName(entry), 20),
+      tableCell(String(entry.level), 4, "right"),
+      tableCell(formatIvPercent(entry.ivs), 7, "right"),
+      tableCell(`${entry.currentHp}/${entry.maxHp}`, 9, "right"),
       tableCell(formatPokemonTags(entry), 7)
     ].join(" ")
   );
@@ -987,28 +1071,33 @@ function buildNavRow(ownerDiscordId: string, active: MenuTab): MenuComponentRow 
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(customId(ownerDiscordId, "card"))
-      .setLabel("Cartao")
-      .setStyle(active === "card" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setEmoji({ id: "1507588890163417108", name: "Trainer" })
+      .setLabel("𝗧𝗿𝗲𝗶𝗻𝗮𝗱𝗼𝗿")
+      .setStyle(ButtonStyle.Secondary)
       .setDisabled(active === "card"),
     new ButtonBuilder()
       .setCustomId(customId(ownerDiscordId, "bag"))
-      .setLabel("Mochila")
-      .setStyle(active === "bag" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setEmoji({ id: "1507588809045315635", name: "Bag" })
+      .setLabel("𝗠𝗼𝗰𝗵𝗶𝗹𝗮")
+      .setStyle(ButtonStyle.Secondary)
       .setDisabled(active === "bag"),
     new ButtonBuilder()
-      .setCustomId(customId(ownerDiscordId, "pokemon", "1"))
-      .setLabel("Pokemon")
-      .setStyle(active === "pokemon" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setDisabled(active === "pokemon"),
+      .setCustomId(customId(ownerDiscordId, "team"))
+      .setEmoji({ id: "1507588822639186011", name: "Team" })
+      .setLabel("𝗘𝗾𝘂𝗶𝗽𝗲")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(active === "team"),
     new ButtonBuilder()
       .setCustomId(customId(ownerDiscordId, "box", "1"))
-      .setLabel("Box")
-      .setStyle(active === "box" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setEmoji({ id: "1507588834366460044", name: "Box" })
+      .setLabel("𝗖𝗮𝗶𝘅𝗮")
+      .setStyle(ButtonStyle.Secondary)
       .setDisabled(active === "box"),
     new ButtonBuilder()
       .setCustomId(customId(ownerDiscordId, "map"))
-      .setLabel("Mapa")
-      .setStyle(active === "map" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setEmoji({ id: "1507588846152323232", name: "Map" })
+      .setLabel("𝗠𝗮𝗽𝗮")
+      .setStyle(ButtonStyle.Secondary)
       .setDisabled(active === "map")
   );
 }
@@ -1099,6 +1188,7 @@ function isMenuAction(action: string | undefined): action is MenuAction {
   return (
     action === "card" ||
     action === "bag" ||
+    action === "team" ||
     action === "pokemon" ||
     action === "box" ||
     action === "map" ||
@@ -1134,6 +1224,10 @@ function formatBoxSlot(pokemon: Pick<PlayerPokemon, "boxNumber" | "boxSlot">): s
   const box = String(pokemon.boxNumber).padStart(2, "0");
   const slot = pokemon.boxSlot ? String(pokemon.boxSlot).padStart(2, "0") : "--";
   return `${box}/${slot}`;
+}
+
+function formatTeamSlot(pokemon: Pick<PlayerPokemon, "teamSlot">): string {
+  return `#${pokemon.teamSlot ?? "?"}`;
 }
 
 function formatPokemonTags(pokemon: Pick<PlayerPokemon, "shiny" | "isFavorite">): string {

@@ -16,6 +16,7 @@ import {
 import sharp from "sharp";
 import type { AppServices } from "../../services/createServices.js";
 import { fetchImageDataUri } from "../assets/imageCache.js";
+import { buildKantoMapCardPayload } from "../cards/kantoMapCard.js";
 
 const MENU_SCOPE = "trainer-menu";
 const CARD_FILE_NAME = "trainer-card.png";
@@ -27,8 +28,8 @@ const ITEM_CARD_HEIGHT = 460;
 const MAX_INVENTORY_BUTTONS = 20;
 const POKEMON_LIST_PAGE_SIZE = 20;
 
-type MenuAction = "card" | "bag" | "pokemon" | "box" | "view" | "use" | "target" | "close";
-type MenuTab = "card" | "bag" | "pokemon" | "box";
+type MenuAction = "card" | "bag" | "pokemon" | "box" | "map" | "view" | "use" | "target" | "close";
+type MenuTab = "card" | "bag" | "pokemon" | "box" | "map";
 type MenuComponentRow = ActionRowBuilder<MessageActionRowComponentBuilder>;
 
 export type TrainerMenuProfile = {
@@ -205,6 +206,16 @@ export async function buildTrainerBoxPayload(
   return buildTrainerPokemonCollectionPayload(services, profile, "box", page);
 }
 
+export async function buildTrainerMapPayload(profile: TrainerMenuProfile): Promise<TrainerMenuPayload> {
+  const payload = await buildKantoMapCardPayload();
+
+  return {
+    embeds: payload.embeds,
+    files: payload.files,
+    components: [buildNavRow(profile.discordId, "map")]
+  };
+}
+
 export async function handleTrainerMenuInteraction(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
   services: AppServices
@@ -241,6 +252,11 @@ export async function handleTrainerMenuInteraction(
 
   if (parsed.action === "box") {
     await editTrainerMenuReply(interaction, await buildTrainerBoxPayload(services, profile, parsePage(parsed.subject)));
+    return;
+  }
+
+  if (parsed.action === "map") {
+    await editTrainerMenuReply(interaction, await buildTrainerMapPayload(profile));
     return;
   }
 
@@ -974,7 +990,12 @@ function buildNavRow(ownerDiscordId: string, active: MenuTab): MenuComponentRow 
       .setCustomId(customId(ownerDiscordId, "box", "1"))
       .setLabel("Box")
       .setStyle(active === "box" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setDisabled(active === "box")
+      .setDisabled(active === "box"),
+    new ButtonBuilder()
+      .setCustomId(customId(ownerDiscordId, "map"))
+      .setLabel("Mapa")
+      .setStyle(active === "map" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setDisabled(active === "map")
   );
 }
 
@@ -1066,6 +1087,7 @@ function isMenuAction(action: string | undefined): action is MenuAction {
     action === "bag" ||
     action === "pokemon" ||
     action === "box" ||
+    action === "map" ||
     action === "view" ||
     action === "use" ||
     action === "target" ||

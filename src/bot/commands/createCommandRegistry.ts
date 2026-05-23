@@ -5,6 +5,7 @@ import { buildPokemonInfoPayload } from "../../ui/cards/pokemonInfoCard.js";
 import {
   buildTrainerBoxPayload,
   buildTrainerCardPayload,
+  buildTrainerMapPayload,
   buildTrainerPokemonListPayload,
   buildTrainerProfileFromMessage
 } from "../../ui/menu/trainerMenu.js";
@@ -21,7 +22,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
     {
       name: "menu",
       aliases: ["cartao"],
-      description: "Mostra o cartao de treinador e a mochila.",
+      description: "Mostra o menu principal do treinador.",
       async execute({ message, services }) {
         await message.reply(await buildTrainerCardPayload(services, buildTrainerProfileFromMessage(message)));
       }
@@ -144,14 +145,19 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
     {
       name: "mapa",
       aliases: ["map"],
-      description: "Administra mapas e spawns por canal.",
+      description: "Mostra o mapa de Kanto ou administra mapas por canal.",
       async execute(context) {
+        const subcommand = context.args[0]?.toLowerCase();
+        if (!subcommand) {
+          await context.message.reply(await buildTrainerMapPayload(buildTrainerProfileFromMessage(context.message)));
+          return;
+        }
+
         if (!context.message.member?.permissions.has(PermissionFlagsBits.ManageGuild)) {
           await context.message.reply("Voce precisa da permissao Gerenciar Servidor para usar este comando.");
           return;
         }
 
-        const subcommand = context.args[0]?.toLowerCase();
         if (subcommand === "criar") {
           await createMap(context);
           return;
@@ -164,6 +170,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
 
         await context.message.reply(
           [
+            `Uso: ${context.prefix}mapa`,
             `Uso: ${context.prefix}mapa criar #canal | Nome | bioma | min | max | descricao`,
             `Uso: ${context.prefix}mapa spawn #canal | pokemon_slug | peso | min | max | shinyChance`
           ].join("\n")

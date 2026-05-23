@@ -22,9 +22,20 @@ export type PokedexDetails = PokedexListEntry & {
   types: string[];
   abilities: string[];
   baseStats: StatTable;
+  evolutionStages: PokedexEvolutionStage[];
   spriteUrl: string | null;
   artworkUrl: string | null;
   sourceLabel: string;
+};
+
+export type PokedexEvolutionStage = {
+  slug: string;
+  name: string;
+  types: string[];
+  spriteUrl: string | null;
+  artworkUrl: string | null;
+  triggerText: string | null;
+  depth: number;
 };
 
 type CacheEntry<T> = {
@@ -46,6 +57,9 @@ type PokeApiPokedex = {
 };
 
 type PokeApiSpecies = {
+  evolution_chain: {
+    url: string;
+  };
   names: Array<{
     name: string;
     language: PokeApiNamedResource;
@@ -59,6 +73,31 @@ type PokeApiSpecies = {
     language: PokeApiNamedResource;
     version: PokeApiNamedResource;
   }>;
+};
+
+type PokeApiEvolutionChain = {
+  chain: PokeApiEvolutionLink;
+};
+
+type PokeApiEvolutionLink = {
+  species: PokeApiNamedResource;
+  evolution_details: PokeApiEvolutionDetail[];
+  evolves_to: PokeApiEvolutionLink[];
+};
+
+type PokeApiEvolutionDetail = {
+  trigger: PokeApiNamedResource;
+  min_level: number | null;
+  item: PokeApiNamedResource | null;
+  held_item: PokeApiNamedResource | null;
+  known_move: PokeApiNamedResource | null;
+  known_move_type: PokeApiNamedResource | null;
+  location: PokeApiNamedResource | null;
+  min_happiness: number | null;
+  min_affection: number | null;
+  time_of_day: string;
+  trade_species: PokeApiNamedResource | null;
+  needs_overworld_rain: boolean;
 };
 
 type PokeApiPokemon = {
@@ -208,6 +247,7 @@ export class PokedexService {
     const flavorText = translatedFlavorText ?? originalFlavorText;
     const sortedTypes = [...pokemon.types].sort((left, right) => left.slot - right.slot);
     const sortedAbilities = [...pokemon.abilities].sort((left, right) => left.slot - right.slot);
+    const evolutionStages = await loadEvolutionStages(species.evolution_chain.url);
 
     return {
       ...entry,
@@ -220,6 +260,7 @@ export class PokedexService {
       types: sortedTypes.map((entryType) => formatSpeciesName(entryType.type.name)),
       abilities: sortedAbilities.map((entryAbility) => formatAbility(entryAbility.ability.name, entryAbility.is_hidden)),
       baseStats: readBaseStats(pokemon.stats),
+      evolutionStages,
       spriteUrl: pokemon.sprites.front_default,
       artworkUrl: pokemon.sprites.other?.["official-artwork"]?.front_default ?? null,
       sourceLabel: translatedFlavorText ? "PokeAPI + traducao PT-BR" : "PokeAPI"
@@ -234,6 +275,108 @@ async function fetchJson<T>(url: string): Promise<T> {
   }
 
   return response.json() as Promise<T>;
+}
+
+async function loadEvolutionStages(url: string): Promise<PokedexEvolutionStage[]> {
+  const chain = await fetchJson<PokeApiEvolutionChain>(url);
+  const rawStages = flattenEvolutionChain(chain.chain).slice(0, 16);
+  const pokemonDetails = await Promise.all(rawStages.map((stage) => loadEvolutionPokemon(stage.slug)));
+
+  return rawStages.map((stage, index) => {
+    const pokemon = pokemonDetails[index] ?? null;
+    return {
+      ...stage,
+      name: pokemon?.name ?? formatSpeciesName(stage.slug),
+      types: pokemon?.types ?? [],
+      spriteUrl: pokemon?.spriteUrl ?? null,
+      artworkUrl: pokemon?.artworkUrl ?? null
+    };
+  });
+}
+
+type RawEvolutionStage = Pick<PokedexEvolutionStage, "slug" | "triggerText" | "depth">;
+
+function flattenEvolutionChain(
+  link: PokeApiEvolutionLink,
+  depth = 0,
+  triggerText: string | null = null
+): RawEvolutionStage[] {
+  const current = {
+    slug: link.species.name,
+    triggerText,
+    depth
+  };
+  const nextStages = link.evolves_to.flatMap((nextLink) =>
+    flattenEvolutionChain(nextLink, depth + 1, formatEvolutionTrigger(nextLink.evolution_details[0]))
+  );
+
+  return [current, ...nextStages];
+}
+
+async function loadEvolutionPokemon(slug: string): Promise<{
+  name: string;
+  types: string[];
+  spriteUrl: string | null;
+  artworkUrl: string | null;
+} | null> {
+  try {
+    const pokemon = await fetchJson<PokeApiPokemon>(`${POKEAPI_BASE_URL}/pokemon/${slug}`);
+    const sortedTypes = [...pokemon.types].sort((left, right) => left.slot - right.slot);
+
+    return {
+      name: formatSpeciesName(slug),
+      types: sortedTypes.map((entryType) => formatSpeciesName(entryType.type.name)),
+      spriteUrl: pokemon.sprites.front_default,
+      artworkUrl: pokemon.sprites.other?.["official-artwork"]?.front_default ?? null
+    };
+  } catch {
+    return null;
+  }
+}
+
+function formatEvolutionTrigger(detail: PokeApiEvolutionDetail | undefined): string | null {
+  if (!detail) {
+    return null;
+  }
+
+  if (detail.min_level) {
+    return `Lv. ${detail.min_level}`;
+  }
+  if (detail.item) {
+    return formatSpeciesName(detail.item.name);
+  }
+  if (detail.held_item) {
+    return `Segurar ${formatSpeciesName(detail.held_item.name)}`;
+  }
+  if (detail.known_move) {
+    return `Golpe ${formatSpeciesName(detail.known_move.name)}`;
+  }
+  if (detail.known_move_type) {
+    return `Golpe ${formatSpeciesName(detail.known_move_type.name)}`;
+  }
+  if (detail.min_happiness) {
+    return `Felicidade ${detail.min_happiness}`;
+  }
+  if (detail.min_affection) {
+    return `Afeicao ${detail.min_affection}`;
+  }
+  if (detail.trade_species) {
+    return `Troca por ${formatSpeciesName(detail.trade_species.name)}`;
+  }
+  if (detail.trigger.name === "trade") {
+    return "Troca";
+  }
+  if (detail.location) {
+    return formatSpeciesName(detail.location.name);
+  }
+  if (detail.needs_overworld_rain) {
+    return "Chuva";
+  }
+  if (detail.time_of_day) {
+    return formatSpeciesName(detail.time_of_day);
+  }
+
+  return formatSpeciesName(detail.trigger.name);
 }
 
 function pickEnglishName(entries: PokeApiSpecies["names"]): string | null {

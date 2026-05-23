@@ -1,14 +1,18 @@
 import { AttachmentBuilder, EmbedBuilder } from "discord.js";
 import sharp from "sharp";
 import type { AppServices } from "../../services/createServices.js";
-import type { PokedexDetails, PokedexListEntry } from "../../services/pokedex/PokedexService.js";
+import type {
+  PokedexDetails,
+  PokedexEvolutionStage,
+  PokedexListEntry
+} from "../../services/pokedex/PokedexService.js";
 import { fetchImageDataUri } from "../assets/imageCache.js";
 
 const INDEX_FILE_NAME = "pokedex-kanto.png";
 const ENTRY_FILE_NAME = "pokedex-entry.png";
 const INDEX_WIDTH = 1200;
 const ENTRY_WIDTH = 960;
-const ENTRY_HEIGHT = 820;
+const ENTRY_HEIGHT = 1000;
 
 type PokedexPayload = {
   content?: string;
@@ -31,6 +35,10 @@ type TypeTheme = {
   soft: string;
   accent: string;
   deep: string;
+};
+
+type EvolutionRenderStage = PokedexEvolutionStage & {
+  imageData: string | null;
 };
 
 export async function buildPokedexPayload(
@@ -91,9 +99,33 @@ async function renderKantoIndex(entries: PokedexListEntry[], prefix: string): Pr
 }
 
 async function renderPokedexEntry(details: PokedexDetails, areas: PokedexSpawnArea[]): Promise<Buffer> {
-  const imageData = await fetchImageDataUri(details.spriteUrl ?? details.artworkUrl);
-  const svg = buildPokedexEntrySvg(details, imageData, areas);
+  const visibleEvolutionStages = selectEvolutionStages(details.evolutionStages, details.slug);
+  const [imageData, ...evolutionImages] = await Promise.all([
+    fetchImageDataUri(details.spriteUrl ?? details.artworkUrl),
+    ...visibleEvolutionStages.map((stage) => fetchImageDataUri(stage.spriteUrl ?? stage.artworkUrl))
+  ]);
+  const evolutionStages = visibleEvolutionStages.map((stage, index) => ({
+    ...stage,
+    imageData: evolutionImages[index] ?? null
+  }));
+  const hiddenEvolutionCount = Math.max(0, details.evolutionStages.length - visibleEvolutionStages.length);
+  const svg = buildPokedexEntrySvg(details, imageData, areas, evolutionStages, hiddenEvolutionCount);
   return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+function selectEvolutionStages(stages: PokedexEvolutionStage[], currentSlug: string): PokedexEvolutionStage[] {
+  if (stages.length <= 5) {
+    return stages;
+  }
+
+  const currentIndex = stages.findIndex((stage) => stage.slug === currentSlug);
+  if (currentIndex <= 3) {
+    return stages.slice(0, 5);
+  }
+
+  const start = Math.max(1, currentIndex - 2);
+  const rootStage = stages[0];
+  return rootStage ? [rootStage, ...stages.slice(start, start + 4)].slice(0, 5) : stages.slice(start, start + 5);
 }
 
 async function loadConfiguredSpawnAreas(services: AppServices, speciesSlug: string): Promise<PokedexSpawnArea[]> {
@@ -166,7 +198,13 @@ function buildKantoIndexSvg(
 </svg>`;
 }
 
-function buildPokedexEntrySvg(details: PokedexDetails, imageData: string | null, areas: PokedexSpawnArea[]): string {
+function buildPokedexEntrySvg(
+  details: PokedexDetails,
+  imageData: string | null,
+  areas: PokedexSpawnArea[],
+  evolutionStages: EvolutionRenderStage[],
+  hiddenEvolutionCount: number
+): string {
   const theme = resolveTypeColor(details.types[0]);
   const flavorLines = wrapText(details.flavorText, 58).slice(0, 8);
   const typeLabel = details.types.join(" / ").toUpperCase();
@@ -219,14 +257,101 @@ function buildPokedexEntrySvg(details: PokedexDetails, imageData: string | null,
   ${buildAbilitiesPanel(338, 304, details.abilities, theme)}
   ${buildStatsPanel(640, 304, details.baseStats, theme)}
 
-  <rect x="36" y="462" width="${ENTRY_WIDTH - 72}" height="282" fill="url(#desc-fill)" stroke="#111820" stroke-width="4"/>
-  <rect x="36" y="462" width="${ENTRY_WIDTH - 72}" height="48" fill="#101820" opacity="0.94"/>
-  <rect x="48" y="476" width="10" height="20" fill="${theme.accent}"/>
-  <text x="68" y="501" font-family="Arial, sans-serif" font-size="24" font-weight="900" fill="#ffffff">DESCRICAO</text>
+  ${buildEvolutionPanel(36, 462, ENTRY_WIDTH - 72, evolutionStages, hiddenEvolutionCount, details.slug, theme)}
+
+  <rect x="36" y="644" width="${ENTRY_WIDTH - 72}" height="280" fill="url(#desc-fill)" stroke="#111820" stroke-width="4"/>
+  <rect x="36" y="644" width="${ENTRY_WIDTH - 72}" height="48" fill="#101820" opacity="0.94"/>
+  <rect x="48" y="658" width="10" height="20" fill="${theme.accent}"/>
+  <text x="68" y="683" font-family="Arial, sans-serif" font-size="24" font-weight="900" fill="#ffffff">DESCRICAO</text>
   ${flavorLines.map((line, index) => `
-    <text x="58" y="${545 + index * 26}" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#111111">${escapeXml(line)}</text>`).join("")}
-  <text x="58" y="784" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#233a52">Fonte: ${escapeXml(details.sourceLabel)} | ${escapeXml(details.sourceUrl)}</text>
+    <text x="58" y="${727 + index * 25}" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#111111">${escapeXml(line)}</text>`).join("")}
+  <text x="58" y="964" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#233a52">Fonte: ${escapeXml(details.sourceLabel)} | ${escapeXml(details.sourceUrl)}</text>
 </svg>`;
+}
+
+function buildEvolutionPanel(
+  x: number,
+  y: number,
+  width: number,
+  stages: EvolutionRenderStage[],
+  hiddenCount: number,
+  currentSlug: string,
+  theme: TypeTheme
+): string {
+  const visibleStages = stages.slice(0, 5);
+  const count = Math.max(visibleStages.length, 1);
+  const cardWidth = Math.min(132, Math.floor((width - 40 - (count - 1) * 34) / count));
+  const startX = x + Math.floor((width - (count * cardWidth + (count - 1) * 34)) / 2);
+  const cardY = y + 54;
+  const headerExtra = hiddenCount > 0 ? ` +${hiddenCount}` : "";
+
+  if (visibleStages.length === 0) {
+    return `
+    ${buildPanelFrame(x, y, width, "EVOLUCAO", theme, 164)}
+    <text x="${x + 20}" y="${y + 98}" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="${theme.deep}">Sem evolucao registrada.</text>`;
+  }
+
+  return `
+  ${buildPanelFrame(x, y, width, `EVOLUCAO${headerExtra}`, theme, 164)}
+  ${visibleStages.map((stage, index) => {
+    const stageX = startX + index * (cardWidth + 34);
+    const nextStage = visibleStages[index + 1];
+    const isCurrent = stage.slug === currentSlug;
+    const isDirectEvolution = nextStage ? nextStage.depth === stage.depth + 1 : false;
+    const arrow = nextStage && isDirectEvolution
+      ? buildEvolutionArrow(stageX + cardWidth, cardY + 48, 34, nextStage.triggerText, theme)
+      : "";
+    return `
+    ${buildEvolutionStageCard(stageX, cardY, cardWidth, stage, isCurrent, theme)}
+    ${arrow}`;
+  }).join("")}`;
+}
+
+function buildEvolutionStageCard(
+  x: number,
+  y: number,
+  width: number,
+  stage: EvolutionRenderStage,
+  isCurrent: boolean,
+  theme: TypeTheme
+): string {
+  const stageTheme = resolveTypeColor(stage.types[0]);
+  const border = isCurrent ? theme.deep : "#41505c";
+  const strokeWidth = isCurrent ? 4 : 2;
+  const fill = isCurrent ? stageTheme.light : "#fbfbf4";
+  const image = stage.imageData
+    ? `<image href="${stage.imageData}" x="${x + Math.floor((width - 54) / 2)}" y="${y + 8}" width="54" height="48" preserveAspectRatio="xMidYMid meet" image-rendering="pixelated"/>`
+    : `<circle cx="${x + width / 2}" cy="${y + 32}" r="22" fill="${stageTheme.soft}"/>`;
+
+  return `
+  <rect x="${x}" y="${y}" width="${width}" height="96" fill="${fill}" stroke="${border}" stroke-width="${strokeWidth}"/>
+  ${image}
+  <text x="${x + width / 2}" y="${y + 70}" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="900" fill="${isCurrent ? theme.deep : "#111111"}">${escapeXml(truncate(stage.name, 13))}</text>
+  ${buildEvolutionTypeBadges(stage.types, x + 8, y + 78, width - 16)}`;
+}
+
+function buildEvolutionTypeBadges(types: string[], x: number, y: number, width: number): string {
+  const visibleTypes = types.slice(0, 2);
+  if (visibleTypes.length === 0) {
+    return "";
+  }
+
+  const badgeWidth = visibleTypes.length === 1 ? width : Math.floor((width - 4) / 2);
+  return visibleTypes.map((type, index) => {
+    const theme = resolveTypeColor(type);
+    const badgeX = x + index * (badgeWidth + 4);
+    return `
+    <rect x="${badgeX}" y="${y}" width="${badgeWidth}" height="14" fill="${theme.badge}" stroke="#111820" stroke-width="1"/>
+    <text x="${badgeX + badgeWidth / 2}" y="${y + 11}" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="900" fill="#ffffff">${escapeXml(truncate(type.toUpperCase(), 8))}</text>`;
+  }).join("");
+}
+
+function buildEvolutionArrow(x: number, y: number, width: number, label: string | null, theme: TypeTheme): string {
+  const centerY = y;
+  return `
+  <line x1="${x + 6}" y1="${centerY}" x2="${x + width - 8}" y2="${centerY}" stroke="${theme.deep}" stroke-width="3"/>
+  <path d="M ${x + width - 8} ${centerY} L ${x + width - 16} ${centerY - 7} L ${x + width - 16} ${centerY + 7} Z" fill="${theme.deep}"/>
+  <text x="${x + width / 2}" y="${centerY - 10}" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="900" fill="${theme.deep}">${escapeXml(truncate(label ?? "", 10))}</text>`;
 }
 
 function buildMetricBlock(x: number, y: number, label: string, value: string, theme: TypeTheme): string {
@@ -235,9 +360,9 @@ function buildMetricBlock(x: number, y: number, label: string, value: string, th
   <text x="${x + 58}" y="${y + 2}" font-family="Consolas, Arial, sans-serif" font-size="26" font-weight="900" fill="${theme.deep}">${escapeXml(value)}</text>`;
 }
 
-function buildPanelFrame(x: number, y: number, width: number, title: string, theme: TypeTheme): string {
+function buildPanelFrame(x: number, y: number, width: number, title: string, theme: TypeTheme, height = 140): string {
   return `
-  <rect x="${x}" y="${y}" width="${width}" height="140" fill="url(#panel-fill)" stroke="#111820" stroke-width="4"/>
+  <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#panel-fill)" stroke="#111820" stroke-width="4"/>
   <rect x="${x}" y="${y}" width="${width}" height="42" fill="#101820" opacity="0.94"/>
   <rect x="${x + 12}" y="${y + 12}" width="8" height="18" fill="${theme.accent}"/>
   <text x="${x + 28}" y="${y + 30}" font-family="Arial, sans-serif" font-size="20" font-weight="900" fill="#ffffff">${escapeXml(title)}</text>`;

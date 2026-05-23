@@ -6,6 +6,7 @@ import { MapService } from "./maps/MapService.js";
 import { PokedexService } from "./pokedex/PokedexService.js";
 import { PokemonGeneratorService } from "./pokemon/PokemonGeneratorService.js";
 import { SpawnService } from "./spawn/SpawnService.js";
+import { TravelService } from "./travel/TravelService.js";
 import { UserService } from "./users/UserService.js";
 
 export function createServices() {
@@ -19,6 +20,7 @@ export function createServices() {
     pokemonGenerator,
     map: new MapService(prisma),
     spawn: new SpawnService(prisma, pokemonGenerator),
+    travel: new TravelService(prisma),
     capture: new CaptureService(prisma),
     battle: new BattleService(prisma, localBattleEngine)
   };

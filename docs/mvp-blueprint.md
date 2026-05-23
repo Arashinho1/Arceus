@@ -54,6 +54,8 @@ Implementados no starter:
 - `.equipe`
 - `.box`
 - `.inventario` ou `.inv`
+- `.viajar <destino>` ou `.viajar voltar`
+- `.fly <cidade>`
 - `.mapa criar #canal | Rota 01 | grama | 1 | 8 | descricao`
 - `.mapa spawn #canal | pidgey | 80 | 2 | 5 | 0.000244`
 

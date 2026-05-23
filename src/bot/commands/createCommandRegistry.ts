@@ -137,6 +137,38 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
       }
     },
     {
+      name: "viajar",
+      description: "Viaja para uma localizacao vizinha do mapa atual.",
+      async execute({ message, services, rawArgs, prefix }) {
+        const result = await services.travel.travel({
+          guildId: message.guildId,
+          channelId: message.channelId,
+          discordId: message.author.id,
+          username: message.author.username,
+          destination: rawArgs,
+          prefix
+        });
+
+        await message.reply(result.message);
+      }
+    },
+    {
+      name: "fly",
+      description: "Usa Fly para viajar direto para uma cidade configurada.",
+      async execute({ message, services, rawArgs, prefix }) {
+        const result = await services.travel.fly({
+          guildId: message.guildId,
+          channelId: message.channelId,
+          discordId: message.author.id,
+          username: message.author.username,
+          destination: rawArgs,
+          prefix
+        });
+
+        await message.reply(result.message);
+      }
+    },
+    {
       name: "mapa",
       aliases: ["map"],
       description: "Mostra o mapa de Kanto ou administra mapas por canal.",

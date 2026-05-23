@@ -1,5 +1,8 @@
+import { STAT_KEYS, type StatKey, type StatTable } from "../../domain/pokemon/types.js";
+
 const POKEAPI_BASE_URL = "https://pokeapi.co/api/v2";
 const KANTO_POKEDEX_URL = `${POKEAPI_BASE_URL}/pokedex/kanto`;
+const TRANSLATE_URL = "https://translate.googleapis.com/translate_a/single";
 const FETCH_TIMEOUT_MS = 8000;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 
@@ -17,6 +20,8 @@ export type PokedexDetails = PokedexListEntry & {
   heightText: string;
   weightText: string;
   types: string[];
+  abilities: string[];
+  baseStats: StatTable;
   spriteUrl: string | null;
   artworkUrl: string | null;
   sourceLabel: string;
@@ -59,6 +64,15 @@ type PokeApiSpecies = {
 type PokeApiPokemon = {
   height: number;
   weight: number;
+  abilities: Array<{
+    is_hidden: boolean;
+    slot: number;
+    ability: PokeApiNamedResource;
+  }>;
+  stats: Array<{
+    base_stat: number;
+    stat: PokeApiNamedResource;
+  }>;
   types: Array<{
     slot: number;
     type: PokeApiNamedResource;
@@ -189,8 +203,11 @@ export class PokedexService {
 
     const name = pickEnglishName(species.names) ?? entry.name;
     const genus = normalizePokemonText(pickEnglishGenus(species.genera) ?? "Pokemon");
-    const flavorText = pickFlavorText(species.flavor_text_entries) ?? "No Pokedex entry is available for this species.";
+    const originalFlavorText = pickFlavorText(species.flavor_text_entries) ?? "No Pokedex entry is available for this species.";
+    const translatedFlavorText = await translateToPtBr(originalFlavorText);
+    const flavorText = translatedFlavorText ?? originalFlavorText;
     const sortedTypes = [...pokemon.types].sort((left, right) => left.slot - right.slot);
+    const sortedAbilities = [...pokemon.abilities].sort((left, right) => left.slot - right.slot);
 
     return {
       ...entry,
@@ -201,9 +218,11 @@ export class PokedexService {
       heightText: formatHeight(pokemon.height),
       weightText: formatWeight(pokemon.weight),
       types: sortedTypes.map((entryType) => formatSpeciesName(entryType.type.name)),
+      abilities: sortedAbilities.map((entryAbility) => formatAbility(entryAbility.ability.name, entryAbility.is_hidden)),
+      baseStats: readBaseStats(pokemon.stats),
       spriteUrl: pokemon.sprites.front_default,
       artworkUrl: pokemon.sprites.other?.["official-artwork"]?.front_default ?? null,
-      sourceLabel: "PokeAPI"
+      sourceLabel: translatedFlavorText ? "PokeAPI + traducao PT-BR" : "PokeAPI"
     };
   }
 }
@@ -252,6 +271,38 @@ function pickFlavorText(entries: PokeApiSpecies["flavor_text_entries"]): string 
   return firstEntry ? normalizePokemonText(firstEntry.flavor_text) : null;
 }
 
+async function translateToPtBr(text: string): Promise<string | null> {
+  try {
+    const params = new URLSearchParams({
+      client: "gtx",
+      sl: "en",
+      tl: "pt",
+      dt: "t",
+      q: text
+    });
+    const response = await fetch(`${TRANSLATE_URL}?${params.toString()}`, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+    });
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json() as unknown;
+    if (!Array.isArray(data) || !Array.isArray(data[0])) {
+      return null;
+    }
+
+    const translated = data[0]
+      .map((part) => Array.isArray(part) && typeof part[0] === "string" ? part[0] : "")
+      .join("")
+      .trim();
+
+    return translated || null;
+  } catch {
+    return null;
+  }
+}
+
 function formatHeight(decimeters: number): string {
   const totalInches = Math.max(0, Math.round(decimeters * 3.937007874));
   const feet = Math.floor(totalInches / 12);
@@ -269,6 +320,46 @@ function formatSpeciesName(slug: string): string {
     .filter(Boolean)
     .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
     .join(" ");
+}
+
+function formatAbility(slug: string, isHidden: boolean): string {
+  const name = formatSpeciesName(slug);
+  return isHidden ? `${name} (Hidden)` : name;
+}
+
+function readBaseStats(entries: PokeApiPokemon["stats"]): StatTable {
+  const stats = STAT_KEYS.reduce((table, key) => {
+    table[key] = 0;
+    return table;
+  }, {} as StatTable);
+
+  for (const entry of entries) {
+    const key = toStatKey(entry.stat.name);
+    if (key) {
+      stats[key] = entry.base_stat;
+    }
+  }
+
+  return stats;
+}
+
+function toStatKey(value: string): StatKey | null {
+  switch (value) {
+    case "hp":
+      return "hp";
+    case "attack":
+      return "attack";
+    case "defense":
+      return "defense";
+    case "special-attack":
+      return "specialAttack";
+    case "special-defense":
+      return "specialDefense";
+    case "speed":
+      return "speed";
+    default:
+      return null;
+  }
 }
 
 function normalizePokemonText(value: string): string {

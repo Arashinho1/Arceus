@@ -8,12 +8,20 @@ const INDEX_FILE_NAME = "pokedex-kanto.png";
 const ENTRY_FILE_NAME = "pokedex-entry.png";
 const INDEX_WIDTH = 1200;
 const ENTRY_WIDTH = 960;
-const ENTRY_HEIGHT = 640;
+const ENTRY_HEIGHT = 820;
 
 type PokedexPayload = {
   content?: string;
   embeds?: EmbedBuilder[];
   files?: AttachmentBuilder[];
+};
+
+type PokedexSpawnArea = {
+  name: string;
+  biome: string;
+  minLevel: number;
+  maxLevel: number;
+  weight: number;
 };
 
 export async function buildPokedexPayload(
@@ -44,7 +52,8 @@ export async function buildPokedexPayload(
       return { content: `Nao encontrei essa especie na Pokedex de Kanto. Use \`${prefix}pokedex\` para ver a lista.` };
     }
 
-    const image = await renderPokedexEntry(details);
+    const areas = await loadConfiguredSpawnAreas(services, details.slug);
+    const image = await renderPokedexEntry(details, areas);
     return {
       embeds: [
         new EmbedBuilder()
@@ -65,17 +74,46 @@ async function renderKantoIndex(entries: PokedexListEntry[], prefix: string): Pr
   const columns = 3;
   const rowsPerColumn = Math.ceil(entries.length / columns);
   const rowHeight = 26;
-  const listTop = 184;
+  const listTop = 154;
   const height = listTop + rowsPerColumn * rowHeight + 120;
   const svg = buildKantoIndexSvg(entries, prefix, height, rowsPerColumn, rowHeight, listTop);
 
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
-async function renderPokedexEntry(details: PokedexDetails): Promise<Buffer> {
+async function renderPokedexEntry(details: PokedexDetails, areas: PokedexSpawnArea[]): Promise<Buffer> {
   const imageData = await fetchImageDataUri(details.spriteUrl ?? details.artworkUrl);
-  const svg = buildPokedexEntrySvg(details, imageData);
+  const svg = buildPokedexEntrySvg(details, imageData, areas);
   return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+async function loadConfiguredSpawnAreas(services: AppServices, speciesSlug: string): Promise<PokedexSpawnArea[]> {
+  const spawns = await services.prisma.mapSpawn.findMany({
+    where: {
+      enabled: true,
+      species: { slug: speciesSlug },
+      map: { isActive: true }
+    },
+    include: {
+      map: {
+        select: {
+          name: true,
+          biome: true
+        }
+      }
+    },
+    take: 8
+  });
+
+  return spawns
+    .map((spawn) => ({
+      name: spawn.map.name,
+      biome: spawn.map.biome,
+      minLevel: spawn.minLevel,
+      maxLevel: spawn.maxLevel,
+      weight: spawn.weight
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
 }
 
 function buildKantoIndexSvg(
@@ -110,64 +148,95 @@ function buildKantoIndexSvg(
   </defs>
   <rect width="${INDEX_WIDTH}" height="${height}" fill="#1d3556"/>
   <rect x="18" y="18" width="${INDEX_WIDTH - 36}" height="${height - 36}" rx="0" fill="url(#shell)" stroke="#07101e" stroke-width="8"/>
-  <rect x="34" y="34" width="${INDEX_WIDTH - 68}" height="64" fill="#101010" stroke="#f6f6f6" stroke-width="3"/>
-  ${buildTopButton(52, "AREA", "#84b9de")}
-  ${buildTopButton(214, "KANTO", "#84b9de")}
-  ${buildTopButton(412, "SIZE", "#84b9de")}
-  ${buildTopButton(574, "CANCEL", "#df1f1f")}
-  <rect x="40" y="118" width="${INDEX_WIDTH - 80}" height="${height - 196}" fill="#fff0bd" stroke="#12335a" stroke-width="5"/>
-  <text x="68" y="158" font-family="Consolas, Arial, sans-serif" font-size="30" font-weight="900" fill="#173056">KANTO POKEDEX</text>
-  <text x="${INDEX_WIDTH - 68}" y="158" text-anchor="end" font-family="Consolas, Arial, sans-serif" font-size="20" font-weight="800" fill="#9b1726">ID 1-151</text>
+  <rect x="40" y="42" width="${INDEX_WIDTH - 80}" height="${height - 120}" fill="#fff0bd" stroke="#12335a" stroke-width="5"/>
+  <text x="68" y="104" font-family="Consolas, Arial, sans-serif" font-size="32" font-weight="900" fill="#173056">KANTO POKEDEX</text>
+  <text x="${INDEX_WIDTH - 68}" y="104" text-anchor="end" font-family="Consolas, Arial, sans-serif" font-size="22" font-weight="800" fill="#9b1726">ID 1-151</text>
   ${rows}
   <text x="64" y="${height - 48}" font-family="Arial, sans-serif" font-size="22" font-weight="800" fill="#f9fbff">Use ${escapeXml(prefix)}dex 25 ou ${escapeXml(prefix)}dex pikachu</text>
   <text x="${INDEX_WIDTH - 64}" y="${height - 48}" text-anchor="end" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#f9fbff">Fonte: PokeAPI</text>
 </svg>`;
 }
 
-function buildPokedexEntrySvg(details: PokedexDetails, imageData: string | null): string {
+function buildPokedexEntrySvg(details: PokedexDetails, imageData: string | null, areas: PokedexSpawnArea[]): string {
   const theme = resolveTypeColor(details.types[0]);
-  const flavorLines = wrapText(details.flavorText, 58).slice(0, 7);
+  const flavorLines = wrapText(details.flavorText, 76).slice(0, 8);
   const typeLabel = details.types.join(" / ").toUpperCase();
   const sprite = imageData
-    ? `<image href="${imageData}" x="78" y="118" width="240" height="220" preserveAspectRatio="xMidYMid meet" image-rendering="pixelated"/>`
-    : `<text x="198" y="242" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="800" fill="#16222d">${escapeXml(truncate(details.name, 12))}</text>`;
+    ? `<image href="${imageData}" x="78" y="70" width="240" height="206" preserveAspectRatio="xMidYMid meet" image-rendering="pixelated"/>`
+    : `<text x="198" y="188" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="800" fill="#16222d">${escapeXml(truncate(details.name, 12))}</text>`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${ENTRY_WIDTH}" height="${ENTRY_HEIGHT}" viewBox="0 0 ${ENTRY_WIDTH} ${ENTRY_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
   <rect width="${ENTRY_WIDTH}" height="${ENTRY_HEIGHT}" fill="#162c4b"/>
   <rect x="12" y="12" width="${ENTRY_WIDTH - 24}" height="${ENTRY_HEIGHT - 24}" fill="#f0b331" stroke="#111111" stroke-width="7"/>
-  <rect x="26" y="26" width="${ENTRY_WIDTH - 52}" height="62" fill="#111111" stroke="#f6f6f6" stroke-width="3"/>
-  ${buildTopButton(44, "AREA", "#86bde7")}
-  ${buildTopButton(206, "CRY", "#86bde7")}
-  ${buildTopButton(368, "SIZE", "#86bde7")}
-  ${buildTopButton(530, "CANCEL", "#df1f1f")}
 
-  <rect x="36" y="104" width="${ENTRY_WIDTH - 72}" height="238" fill="#f2f2e8" stroke="#151515" stroke-width="4"/>
-  <rect x="58" y="122" width="280" height="196" fill="${theme.light}" stroke="#1f2f3a" stroke-width="3"/>
-  <circle cx="198" cy="220" r="88" fill="${theme.soft}" opacity="0.68"/>
+  <rect x="36" y="34" width="${ENTRY_WIDTH - 72}" height="252" fill="#f2f2e8" stroke="#151515" stroke-width="4"/>
+  <rect x="58" y="58" width="280" height="200" fill="${theme.light}" stroke="#1f2f3a" stroke-width="3"/>
+  <circle cx="198" cy="158" r="88" fill="${theme.soft}" opacity="0.68"/>
   ${sprite}
 
-  <text x="366" y="142" font-family="Consolas, Arial, sans-serif" font-size="26" font-weight="900" fill="#111111">ID ${details.dexNumber}</text>
-  <text x="498" y="142" font-family="Arial, sans-serif" font-size="26" font-weight="900" fill="#111111">${escapeXml(truncate(details.name.toUpperCase(), 18))}</text>
-  <text x="366" y="184" font-family="Arial, sans-serif" font-size="24" font-weight="800" fill="#111111">${escapeXml(truncate(details.genus.toUpperCase(), 24))}</text>
-  <rect x="366" y="206" width="230" height="36" fill="${theme.badge}" stroke="#111111" stroke-width="2"/>
-  <text x="481" y="231" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="900" fill="#ffffff">${escapeXml(truncate(typeLabel, 20))}</text>
-  <text x="366" y="284" font-family="Consolas, Arial, sans-serif" font-size="24" font-weight="900" fill="#111111">HT</text>
-  <text x="430" y="284" font-family="Consolas, Arial, sans-serif" font-size="24" font-weight="900" fill="#111111">${escapeXml(details.heightText)}</text>
-  <text x="586" y="284" font-family="Consolas, Arial, sans-serif" font-size="24" font-weight="900" fill="#111111">WT</text>
-  <text x="650" y="284" font-family="Consolas, Arial, sans-serif" font-size="24" font-weight="900" fill="#111111">${escapeXml(details.weightText)}</text>
+  <text x="366" y="74" font-family="Consolas, Arial, sans-serif" font-size="28" font-weight="900" fill="#111111">ID ${details.dexNumber}</text>
+  <text x="498" y="74" font-family="Arial, sans-serif" font-size="28" font-weight="900" fill="#111111">${escapeXml(truncate(details.name.toUpperCase(), 18))}</text>
+  <text x="366" y="116" font-family="Arial, sans-serif" font-size="24" font-weight="800" fill="#111111">${escapeXml(truncate(details.genus.toUpperCase(), 24))}</text>
+  <rect x="366" y="136" width="230" height="36" fill="${theme.badge}" stroke="#111111" stroke-width="2"/>
+  <text x="481" y="161" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="900" fill="#ffffff">${escapeXml(truncate(typeLabel, 20))}</text>
+  <text x="366" y="214" font-family="Consolas, Arial, sans-serif" font-size="24" font-weight="900" fill="#111111">ALT</text>
+  <text x="430" y="214" font-family="Consolas, Arial, sans-serif" font-size="24" font-weight="900" fill="#111111">${escapeXml(details.heightText)}</text>
+  <text x="586" y="214" font-family="Consolas, Arial, sans-serif" font-size="24" font-weight="900" fill="#111111">PESO</text>
+  <text x="670" y="214" font-family="Consolas, Arial, sans-serif" font-size="24" font-weight="900" fill="#111111">${escapeXml(details.weightText)}</text>
 
-  <rect x="36" y="362" width="${ENTRY_WIDTH - 72}" height="214" fill="#fff8dc" stroke="#151515" stroke-width="4"/>
+  ${buildAreasPanel(36, 304, areas)}
+  ${buildAbilitiesPanel(338, 304, details.abilities)}
+  ${buildStatsPanel(640, 304, details.baseStats)}
+
+  <rect x="36" y="462" width="${ENTRY_WIDTH - 72}" height="282" fill="#fff8dc" stroke="#151515" stroke-width="4"/>
+  <text x="58" y="502" font-family="Arial, sans-serif" font-size="23" font-weight="900" fill="#111111">DESCRICAO</text>
   ${flavorLines.map((line, index) => `
-    <text x="58" y="${410 + index * 26}" font-family="Consolas, Arial, sans-serif" font-size="22" font-weight="700" fill="#111111">${escapeXml(line)}</text>`).join("")}
-  <text x="58" y="604" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#233a52">Fonte: ${escapeXml(details.sourceLabel)} | ${escapeXml(details.sourceUrl)}</text>
+    <text x="58" y="${540 + index * 25}" font-family="Consolas, Arial, sans-serif" font-size="21" font-weight="700" fill="#111111">${escapeXml(line)}</text>`).join("")}
+  <text x="58" y="784" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#233a52">Fonte: ${escapeXml(details.sourceLabel)} | ${escapeXml(details.sourceUrl)}</text>
 </svg>`;
 }
 
-function buildTopButton(x: number, label: string, fill: string): string {
+function buildAreasPanel(x: number, y: number, areas: PokedexSpawnArea[]): string {
+  const visibleAreas = areas.slice(0, 3);
+  const lines = visibleAreas.length > 0
+    ? visibleAreas.map((area) => `${area.name} (${area.biome}) Lv.${area.minLevel}-${area.maxLevel}`)
+    : ["Nao configurado"];
+  const extra = areas.length > visibleAreas.length ? [`+${areas.length - visibleAreas.length} area(s)`] : [];
+
   return `
-    <rect x="${x}" y="38" width="126" height="30" rx="0" fill="${fill}" stroke="#dff2ff" stroke-width="2"/>
-    <text x="${x + 63}" y="60" text-anchor="middle" font-family="Consolas, Arial, sans-serif" font-size="18" font-weight="900" fill="#111111">${escapeXml(label)}</text>`;
+  <rect x="${x}" y="${y}" width="286" height="140" fill="#f2f2e8" stroke="#151515" stroke-width="4"/>
+  <text x="${x + 20}" y="${y + 36}" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#111111">AREAS</text>
+  ${[...lines, ...extra].slice(0, 4).map((line, index) => `
+    <text x="${x + 20}" y="${y + 68 + index * 22}" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#111111">${escapeXml(truncate(line, 28))}</text>`).join("")}`;
+}
+
+function buildAbilitiesPanel(x: number, y: number, abilities: string[]): string {
+  const lines = abilities.length > 0 ? abilities : ["Unknown"];
+
+  return `
+  <rect x="${x}" y="${y}" width="286" height="140" fill="#f2f2e8" stroke="#151515" stroke-width="4"/>
+  <text x="${x + 20}" y="${y + 36}" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#111111">HABILIDADES</text>
+  ${lines.slice(0, 4).map((line, index) => `
+    <text x="${x + 20}" y="${y + 68 + index * 22}" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="#111111">${escapeXml(truncate(line, 27))}</text>`).join("")}`;
+}
+
+function buildStatsPanel(x: number, y: number, stats: PokedexDetails["baseStats"]): string {
+  const rows: Array<[string, number, number, number]> = [
+    ["HP", stats.hp, x + 20, y + 68],
+    ["ATK", stats.attack, x + 20, y + 94],
+    ["DEF", stats.defense, x + 20, y + 120],
+    ["SPA", stats.specialAttack, x + 146, y + 68],
+    ["SPD", stats.specialDefense, x + 146, y + 94],
+    ["SPE", stats.speed, x + 146, y + 120]
+  ];
+
+  return `
+  <rect x="${x}" y="${y}" width="284" height="140" fill="#f2f2e8" stroke="#151515" stroke-width="4"/>
+  <text x="${x + 20}" y="${y + 36}" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#111111">ATRIBUTOS BASE</text>
+  ${rows.map(([label, value, rowX, rowY]) => `
+    <text x="${rowX}" y="${rowY}" font-family="Consolas, Arial, sans-serif" font-size="19" font-weight="900" fill="#111111">${label}</text>
+    <text x="${rowX + 72}" y="${rowY}" text-anchor="end" font-family="Consolas, Arial, sans-serif" font-size="19" font-weight="900" fill="#111111">${value}</text>`).join("")}`;
 }
 
 function isListQuery(query: string): boolean {

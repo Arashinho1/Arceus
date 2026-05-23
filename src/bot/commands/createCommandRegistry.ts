@@ -1,12 +1,12 @@
 import { EmbedBuilder, PermissionFlagsBits } from "discord.js";
 import type { PrefixCommand } from "./types.js";
 import type { AppServices } from "../../services/createServices.js";
+import { buildPokedexPayload } from "../../ui/cards/pokedexCard.js";
 import { buildPokemonInfoPayload } from "../../ui/cards/pokemonInfoCard.js";
 import {
   buildTrainerBoxPayload,
   buildTrainerCardPayload,
   buildTrainerMapPayload,
-  buildTrainerPokemonListPayload,
   buildTrainerProfileFromMessage
 } from "../../ui/menu/trainerMenu.js";
 
@@ -51,17 +51,11 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
       }
     },
     {
-      name: "pokemon",
-      aliases: ["p"],
-      description: "Mostra a colecao de Pokemon do jogador.",
-      async execute({ message, services, args }) {
-        await message.reply(
-          await buildTrainerPokemonListPayload(
-            services,
-            buildTrainerProfileFromMessage(message),
-            parseListPage(args[0])
-          )
-        );
+      name: "pokedex",
+      aliases: ["dex", "pokemon", "p"],
+      description: "Mostra a Pokedex de Kanto.",
+      async execute({ message, services, rawArgs, prefix }) {
+        await message.reply(await buildPokedexPayload(services, prefix, rawArgs));
       }
     },
     {
@@ -83,7 +77,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
       async execute({ message, services, args, prefix }) {
         const ref = args[0];
         if (!ref) {
-          await message.reply(`Uso: ${prefix}info <ref>. Pegue a ref em ${prefix}pokemon ou ${prefix}box.`);
+          await message.reply(`Uso: ${prefix}info <ref>. Pegue a ref em ${prefix}box ou ${prefix}menu.`);
           return;
         }
 
@@ -97,7 +91,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
       async execute({ message, services, args, prefix }) {
         const ref = args[0];
         if (!ref) {
-          await message.reply(`Uso: ${prefix}favoritar <ref>. Pegue a ref em ${prefix}pokemon ou ${prefix}box.`);
+          await message.reply(`Uso: ${prefix}favoritar <ref>. Pegue a ref em ${prefix}box ou ${prefix}menu.`);
           return;
         }
 
@@ -111,7 +105,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
       async execute({ message, services, args, prefix }) {
         const ref = args[0];
         if (!ref) {
-          await message.reply(`Uso: ${prefix}desfavoritar <ref>. Pegue a ref em ${prefix}pokemon ou ${prefix}box.`);
+          await message.reply(`Uso: ${prefix}desfavoritar <ref>. Pegue a ref em ${prefix}box ou ${prefix}menu.`);
           return;
         }
 
@@ -262,7 +256,7 @@ async function setPokemonFavorite(
 ): Promise<string> {
   const normalizedRef = ref.trim().toLowerCase();
   if (normalizedRef.length < 4) {
-    return "Use uma ref com pelo menos 4 caracteres. Pegue a ref em .pokemon ou .box.";
+    return "Use uma ref com pelo menos 4 caracteres. Pegue a ref em .box ou .menu.";
   }
 
   const user = await services.user.ensureUser({ discordId, username });
@@ -286,7 +280,7 @@ async function setPokemonFavorite(
   }
 
   if (matches.length > 1) {
-    return "Essa ref encontrou mais de um Pokemon. Use mais caracteres do ID exibido em .pokemon ou .box.";
+    return "Essa ref encontrou mais de um Pokemon. Use mais caracteres do ID exibido em .box ou .menu.";
   }
 
   const pokemon = matches[0];

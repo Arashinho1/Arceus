@@ -52,7 +52,7 @@ export async function buildPokemonInfoPayload(
 ): Promise<PokemonInfoPayload> {
   const normalizedRef = ref.trim().toLowerCase();
   if (normalizedRef.length < MIN_REF_LENGTH) {
-    return { content: `Use uma ref com pelo menos ${MIN_REF_LENGTH} caracteres. Pegue a ref em .pokemon ou .box.` };
+    return { content: `Use uma ref com pelo menos ${MIN_REF_LENGTH} caracteres. Pegue a ref em .box ou .menu.` };
   }
 
   const user = await services.user.ensureUser({
@@ -76,7 +76,7 @@ export async function buildPokemonInfoPayload(
   }
 
   if (matches.length > 1) {
-    return { content: "Essa ref encontrou mais de um Pokemon. Use mais caracteres do ID exibido em .pokemon ou .box." };
+    return { content: "Essa ref encontrou mais de um Pokemon. Use mais caracteres do ID exibido em .box ou .menu." };
   }
 
   const pokemon = matches[0];

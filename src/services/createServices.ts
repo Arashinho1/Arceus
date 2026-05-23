@@ -3,6 +3,7 @@ import { LocalBattleEngine } from "../integrations/local/LocalBattleEngine.js";
 import { BattleService } from "./battle/BattleService.js";
 import { CaptureService } from "./capture/CaptureService.js";
 import { MapService } from "./maps/MapService.js";
+import { PokedexService } from "./pokedex/PokedexService.js";
 import { PokemonGeneratorService } from "./pokemon/PokemonGeneratorService.js";
 import { SpawnService } from "./spawn/SpawnService.js";
 import { UserService } from "./users/UserService.js";
@@ -14,6 +15,7 @@ export function createServices() {
   return {
     prisma,
     user: new UserService(prisma),
+    pokedex: new PokedexService(),
     pokemonGenerator,
     map: new MapService(prisma),
     spawn: new SpawnService(prisma, pokemonGenerator),

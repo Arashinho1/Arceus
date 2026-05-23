@@ -50,6 +50,7 @@ Usei `GameMap` no Prisma para evitar confusão com o `Map` nativo do JavaScript,
 Implementados no starter:
 
 - `.ping`
+- `.pokedex` ou `.dex` (aliases de transicao: `.pokemon` e `.p`)
 - `.equipe`
 - `.box`
 - `.inventario` ou `.inv`
@@ -65,9 +66,9 @@ Comandos alvo do MVP:
 - `.mapa spawn listar #canal`
 - `.mapa spawn remover #canal pokemon_slug`
 - `.spawn manual #canal pokemon_slug level`
-- `.pokemon ver <id>`
-- `.pokemon mover <id> equipe|box [slot]`
-- `.pokemon liberar <id>`
+- `.colecao ver <id>`
+- `.colecao mover <id> equipe|box [slot]`
+- `.colecao liberar <id>`
 - `.item usar <item_slug> [pokemon_id]`
 - `.batalha desafiar @jogador`
 - `.admin dar item @jogador item_slug quantidade`
@@ -176,7 +177,7 @@ Etapa 1, base jogável:
 Etapa 2, captura/equipe/box:
 
 - Implementar seleção de bola no botão de captura.
-- Completar `.pokemon ver`, `.pokemon mover`, `.pokemon liberar`.
+- Completar `.colecao ver`, `.colecao mover`, `.colecao liberar`.
 - Criar paginação de box.
 - Adicionar logs de captura.
 

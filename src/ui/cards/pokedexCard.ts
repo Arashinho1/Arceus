@@ -266,20 +266,20 @@ function buildAbilitiesPanel(x: number, y: number, abilities: string[], theme: T
 }
 
 function buildStatsPanel(x: number, y: number, stats: PokedexDetails["baseStats"], theme: TypeTheme): string {
-  const rows: Array<[string, number, number, number]> = [
-    ["HP", stats.hp, x + 20, y + 68],
-    ["ATK", stats.attack, x + 20, y + 94],
-    ["DEF", stats.defense, x + 20, y + 120],
-    ["SPA", stats.specialAttack, x + 146, y + 68],
-    ["SPD", stats.specialDefense, x + 146, y + 94],
-    ["SPE", stats.speed, x + 146, y + 120]
+  const rows: Array<[string, number, number, number, number]> = [
+    ["HP", stats.hp, x + 20, x + 72, y + 68],
+    ["ATK", stats.attack, x + 20, x + 72, y + 94],
+    ["DEF", stats.defense, x + 20, x + 72, y + 120],
+    ["SPA", stats.specialAttack, x + 150, x + 204, y + 68],
+    ["SPD", stats.specialDefense, x + 150, x + 204, y + 94],
+    ["SPE", stats.speed, x + 150, x + 204, y + 120]
   ];
 
   return `
   ${buildPanelFrame(x, y, 284, "ATRIBUTOS BASE", theme)}
-  ${rows.map(([label, value, rowX, rowY]) => `
-    <text x="${rowX}" y="${rowY}" font-family="Consolas, Arial, sans-serif" font-size="19" font-weight="900" fill="#111111">${label}</text>
-    <text x="${rowX + 72}" y="${rowY}" text-anchor="end" font-family="Consolas, Arial, sans-serif" font-size="19" font-weight="900" fill="${resolveStatColor(value, theme)}">${value}</text>`).join("")}`;
+  ${rows.map(([label, value, labelX, valueX, rowY]) => `
+    <text x="${labelX}" y="${rowY}" font-family="Consolas, Arial, sans-serif" font-size="19" font-weight="900" fill="#111111">${label}</text>
+    <text x="${valueX}" y="${rowY}" font-family="Consolas, Arial, sans-serif" font-size="19" font-weight="900" fill="${resolveStatColor(value, theme)}">${value}</text>`).join("")}`;
 }
 
 function isListQuery(query: string): boolean {

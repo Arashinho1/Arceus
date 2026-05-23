@@ -283,7 +283,10 @@ function buildEvolutionPanel(
   const cardWidth = Math.min(132, Math.floor((width - 40 - (count - 1) * 34) / count));
   const startX = x + Math.floor((width - (count * cardWidth + (count - 1) * 34)) / 2);
   const cardY = y + 54;
-  const headerExtra = hiddenCount > 0 ? ` +${hiddenCount}` : "";
+  const headerExtra = hiddenCount > 0 ? ` (+${hiddenCount})` : "";
+  const hasBranching = visibleStages.some((stage, index) =>
+    visibleStages.slice(0, index).some((previousStage) => previousStage.depth === stage.depth)
+  );
 
   if (visibleStages.length === 0) {
     return `
@@ -298,8 +301,8 @@ function buildEvolutionPanel(
     const nextStage = visibleStages[index + 1];
     const isCurrent = stage.slug === currentSlug;
     const isDirectEvolution = nextStage ? nextStage.depth === stage.depth + 1 : false;
-    const arrow = nextStage && isDirectEvolution
-      ? buildEvolutionArrow(stageX + cardWidth, cardY + 48, 34, nextStage.triggerText, theme)
+    const arrow = nextStage && isDirectEvolution && !hasBranching
+      ? buildEvolutionArrow(stageX + cardWidth, cardY + 52, 34, theme)
       : "";
     return `
     ${buildEvolutionStageCard(stageX, cardY, cardWidth, stage, isCurrent, theme)}
@@ -319,15 +322,18 @@ function buildEvolutionStageCard(
   const border = isCurrent ? theme.deep : "#41505c";
   const strokeWidth = isCurrent ? 4 : 2;
   const fill = isCurrent ? stageTheme.light : "#fbfbf4";
+  const trigger = stage.triggerText ? truncate(stage.triggerText, 17) : "BASE";
   const image = stage.imageData
-    ? `<image href="${stage.imageData}" x="${x + Math.floor((width - 54) / 2)}" y="${y + 8}" width="54" height="48" preserveAspectRatio="xMidYMid meet" image-rendering="pixelated"/>`
-    : `<circle cx="${x + width / 2}" cy="${y + 32}" r="22" fill="${stageTheme.soft}"/>`;
+    ? `<image href="${stage.imageData}" x="${x + Math.floor((width - 50) / 2)}" y="${y + 23}" width="50" height="42" preserveAspectRatio="xMidYMid meet" image-rendering="pixelated"/>`
+    : `<circle cx="${x + width / 2}" cy="${y + 44}" r="20" fill="${stageTheme.soft}"/>`;
 
   return `
-  <rect x="${x}" y="${y}" width="${width}" height="96" fill="${fill}" stroke="${border}" stroke-width="${strokeWidth}"/>
+  <rect x="${x}" y="${y}" width="${width}" height="104" fill="${fill}" stroke="${border}" stroke-width="${strokeWidth}"/>
+  <rect x="${x + 8}" y="${y + 6}" width="${width - 16}" height="17" fill="${stage.triggerText ? stageTheme.badge : "#52605a"}" stroke="#111820" stroke-width="1"/>
+  <text x="${x + width / 2}" y="${y + 19}" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="900" fill="#ffffff">${escapeXml(trigger)}</text>
   ${image}
-  <text x="${x + width / 2}" y="${y + 70}" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="900" fill="${isCurrent ? theme.deep : "#111111"}">${escapeXml(truncate(stage.name, 13))}</text>
-  ${buildEvolutionTypeBadges(stage.types, x + 8, y + 78, width - 16)}`;
+  <text x="${x + width / 2}" y="${y + 77}" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="900" fill="${isCurrent ? theme.deep : "#111111"}">${escapeXml(truncate(stage.name, 13))}</text>
+  ${buildEvolutionTypeBadges(stage.types, x + 8, y + 85, width - 16)}`;
 }
 
 function buildEvolutionTypeBadges(types: string[], x: number, y: number, width: number): string {
@@ -346,12 +352,11 @@ function buildEvolutionTypeBadges(types: string[], x: number, y: number, width: 
   }).join("");
 }
 
-function buildEvolutionArrow(x: number, y: number, width: number, label: string | null, theme: TypeTheme): string {
+function buildEvolutionArrow(x: number, y: number, width: number, theme: TypeTheme): string {
   const centerY = y;
   return `
   <line x1="${x + 6}" y1="${centerY}" x2="${x + width - 8}" y2="${centerY}" stroke="${theme.deep}" stroke-width="3"/>
-  <path d="M ${x + width - 8} ${centerY} L ${x + width - 16} ${centerY - 7} L ${x + width - 16} ${centerY + 7} Z" fill="${theme.deep}"/>
-  <text x="${x + width / 2}" y="${centerY - 10}" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="900" fill="${theme.deep}">${escapeXml(truncate(label ?? "", 10))}</text>`;
+  <path d="M ${x + width - 8} ${centerY} L ${x + width - 16} ${centerY - 7} L ${x + width - 16} ${centerY + 7} Z" fill="${theme.deep}"/>`;
 }
 
 function buildMetricBlock(x: number, y: number, label: string, value: string, theme: TypeTheme): string {

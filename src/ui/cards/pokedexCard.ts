@@ -24,6 +24,15 @@ type PokedexSpawnArea = {
   weight: number;
 };
 
+type TypeTheme = {
+  primary: number;
+  badge: string;
+  light: string;
+  soft: string;
+  accent: string;
+  deep: string;
+};
+
 export async function buildPokedexPayload(
   services: AppServices,
   prefix: string,
@@ -159,45 +168,82 @@ function buildKantoIndexSvg(
 
 function buildPokedexEntrySvg(details: PokedexDetails, imageData: string | null, areas: PokedexSpawnArea[]): string {
   const theme = resolveTypeColor(details.types[0]);
-  const flavorLines = wrapText(details.flavorText, 76).slice(0, 8);
+  const flavorLines = wrapText(details.flavorText, 58).slice(0, 8);
   const typeLabel = details.types.join(" / ").toUpperCase();
   const sprite = imageData
-    ? `<image href="${imageData}" x="78" y="70" width="240" height="206" preserveAspectRatio="xMidYMid meet" image-rendering="pixelated"/>`
-    : `<text x="198" y="188" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="800" fill="#16222d">${escapeXml(truncate(details.name, 12))}</text>`;
+    ? `<image href="${imageData}" x="80" y="72" width="236" height="204" preserveAspectRatio="xMidYMid meet" image-rendering="pixelated"/>`
+    : `<text x="198" y="190" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="800" fill="#16222d">${escapeXml(truncate(details.name, 12))}</text>`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${ENTRY_WIDTH}" height="${ENTRY_HEIGHT}" viewBox="0 0 ${ENTRY_WIDTH} ${ENTRY_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-  <rect width="${ENTRY_WIDTH}" height="${ENTRY_HEIGHT}" fill="#162c4b"/>
-  <rect x="12" y="12" width="${ENTRY_WIDTH - 24}" height="${ENTRY_HEIGHT - 24}" fill="#f0b331" stroke="#111111" stroke-width="7"/>
+  <defs>
+    <linearGradient id="outer-shell" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8c94a"/>
+      <stop offset="58%" stop-color="#efae24"/>
+      <stop offset="100%" stop-color="#d78a18"/>
+    </linearGradient>
+    <linearGradient id="panel-fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fbfbf4"/>
+      <stop offset="100%" stop-color="#ecece0"/>
+    </linearGradient>
+    <linearGradient id="desc-fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff7d7"/>
+      <stop offset="100%" stop-color="#fff0bd"/>
+    </linearGradient>
+    <filter id="card-shadow" x="-5%" y="-5%" width="110%" height="120%">
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#000000" flood-opacity="0.26"/>
+    </filter>
+  </defs>
+  <rect width="${ENTRY_WIDTH}" height="${ENTRY_HEIGHT}" fill="#102a49"/>
+  <rect x="10" y="10" width="${ENTRY_WIDTH - 20}" height="${ENTRY_HEIGHT - 20}" fill="url(#outer-shell)" stroke="#07101e" stroke-width="7"/>
+  <rect x="25" y="25" width="${ENTRY_WIDTH - 50}" height="${ENTRY_HEIGHT - 50}" fill="none" stroke="#ffd86c" stroke-width="2" opacity="0.72"/>
 
-  <rect x="36" y="34" width="${ENTRY_WIDTH - 72}" height="252" fill="#f2f2e8" stroke="#151515" stroke-width="4"/>
-  <rect x="58" y="58" width="280" height="200" fill="${theme.light}" stroke="#1f2f3a" stroke-width="3"/>
-  <circle cx="198" cy="158" r="88" fill="${theme.soft}" opacity="0.68"/>
+  <g filter="url(#card-shadow)">
+    <rect x="36" y="34" width="${ENTRY_WIDTH - 72}" height="252" fill="url(#panel-fill)" stroke="#111820" stroke-width="4"/>
+    <rect x="58" y="58" width="280" height="200" fill="${theme.light}" stroke="${theme.deep}" stroke-width="3"/>
+    <circle cx="198" cy="158" r="88" fill="${theme.soft}" opacity="0.72"/>
+    <circle cx="198" cy="158" r="116" fill="none" stroke="${theme.accent}" stroke-width="2" opacity="0.42"/>
+  </g>
   ${sprite}
 
-  <text x="366" y="74" font-family="Consolas, Arial, sans-serif" font-size="28" font-weight="900" fill="#111111">ID ${details.dexNumber}</text>
-  <text x="498" y="74" font-family="Arial, sans-serif" font-size="28" font-weight="900" fill="#111111">${escapeXml(truncate(details.name.toUpperCase(), 18))}</text>
-  <text x="366" y="116" font-family="Arial, sans-serif" font-size="24" font-weight="800" fill="#111111">${escapeXml(truncate(details.genus.toUpperCase(), 24))}</text>
-  <rect x="366" y="136" width="230" height="36" fill="${theme.badge}" stroke="#111111" stroke-width="2"/>
+  <text x="366" y="68" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#53606b">ID</text>
+  <text x="398" y="74" font-family="Consolas, Arial, sans-serif" font-size="34" font-weight="900" fill="${theme.deep}">${details.dexNumber}</text>
+  <text x="498" y="74" font-family="Arial, sans-serif" font-size="31" font-weight="900" fill="#101820">${escapeXml(truncate(details.name.toUpperCase(), 17))}</text>
+  <text x="366" y="116" font-family="Arial, sans-serif" font-size="24" font-weight="900" fill="${theme.deep}">${escapeXml(truncate(details.genus.toUpperCase(), 24))}</text>
+  <rect x="366" y="136" width="230" height="38" fill="${theme.badge}" stroke="#111111" stroke-width="2"/>
   <text x="481" y="161" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="900" fill="#ffffff">${escapeXml(truncate(typeLabel, 20))}</text>
-  <text x="366" y="214" font-family="Consolas, Arial, sans-serif" font-size="24" font-weight="900" fill="#111111">ALT</text>
-  <text x="430" y="214" font-family="Consolas, Arial, sans-serif" font-size="24" font-weight="900" fill="#111111">${escapeXml(details.heightText)}</text>
-  <text x="586" y="214" font-family="Consolas, Arial, sans-serif" font-size="24" font-weight="900" fill="#111111">PESO</text>
-  <text x="670" y="214" font-family="Consolas, Arial, sans-serif" font-size="24" font-weight="900" fill="#111111">${escapeXml(details.weightText)}</text>
+  ${buildMetricBlock(366, 204, "ALT", details.heightText, theme)}
+  ${buildMetricBlock(586, 204, "PESO", details.weightText, theme)}
 
-  ${buildAreasPanel(36, 304, areas)}
-  ${buildAbilitiesPanel(338, 304, details.abilities)}
-  ${buildStatsPanel(640, 304, details.baseStats)}
+  ${buildAreasPanel(36, 304, areas, theme)}
+  ${buildAbilitiesPanel(338, 304, details.abilities, theme)}
+  ${buildStatsPanel(640, 304, details.baseStats, theme)}
 
-  <rect x="36" y="462" width="${ENTRY_WIDTH - 72}" height="282" fill="#fff8dc" stroke="#151515" stroke-width="4"/>
-  <text x="58" y="502" font-family="Arial, sans-serif" font-size="23" font-weight="900" fill="#111111">DESCRICAO</text>
+  <rect x="36" y="462" width="${ENTRY_WIDTH - 72}" height="282" fill="url(#desc-fill)" stroke="#111820" stroke-width="4"/>
+  <rect x="36" y="462" width="${ENTRY_WIDTH - 72}" height="48" fill="#101820" opacity="0.94"/>
+  <rect x="48" y="476" width="10" height="20" fill="${theme.accent}"/>
+  <text x="68" y="501" font-family="Arial, sans-serif" font-size="24" font-weight="900" fill="#ffffff">DESCRICAO</text>
   ${flavorLines.map((line, index) => `
-    <text x="58" y="${540 + index * 25}" font-family="Consolas, Arial, sans-serif" font-size="21" font-weight="700" fill="#111111">${escapeXml(line)}</text>`).join("")}
+    <text x="58" y="${545 + index * 26}" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#111111">${escapeXml(line)}</text>`).join("")}
   <text x="58" y="784" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#233a52">Fonte: ${escapeXml(details.sourceLabel)} | ${escapeXml(details.sourceUrl)}</text>
 </svg>`;
 }
 
-function buildAreasPanel(x: number, y: number, areas: PokedexSpawnArea[]): string {
+function buildMetricBlock(x: number, y: number, label: string, value: string, theme: TypeTheme): string {
+  return `
+  <text x="${x}" y="${y}" font-family="Arial, sans-serif" font-size="17" font-weight="900" fill="#53606b">${escapeXml(label)}</text>
+  <text x="${x + 58}" y="${y + 2}" font-family="Consolas, Arial, sans-serif" font-size="26" font-weight="900" fill="${theme.deep}">${escapeXml(value)}</text>`;
+}
+
+function buildPanelFrame(x: number, y: number, width: number, title: string, theme: TypeTheme): string {
+  return `
+  <rect x="${x}" y="${y}" width="${width}" height="140" fill="url(#panel-fill)" stroke="#111820" stroke-width="4"/>
+  <rect x="${x}" y="${y}" width="${width}" height="42" fill="#101820" opacity="0.94"/>
+  <rect x="${x + 12}" y="${y + 12}" width="8" height="18" fill="${theme.accent}"/>
+  <text x="${x + 28}" y="${y + 30}" font-family="Arial, sans-serif" font-size="20" font-weight="900" fill="#ffffff">${escapeXml(title)}</text>`;
+}
+
+function buildAreasPanel(x: number, y: number, areas: PokedexSpawnArea[], theme: TypeTheme): string {
   const visibleAreas = areas.slice(0, 3);
   const lines = visibleAreas.length > 0
     ? visibleAreas.map((area) => `${area.name} (${area.biome}) Lv.${area.minLevel}-${area.maxLevel}`)
@@ -205,23 +251,21 @@ function buildAreasPanel(x: number, y: number, areas: PokedexSpawnArea[]): strin
   const extra = areas.length > visibleAreas.length ? [`+${areas.length - visibleAreas.length} area(s)`] : [];
 
   return `
-  <rect x="${x}" y="${y}" width="286" height="140" fill="#f2f2e8" stroke="#151515" stroke-width="4"/>
-  <text x="${x + 20}" y="${y + 36}" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#111111">AREAS</text>
+  ${buildPanelFrame(x, y, 286, "AREAS", theme)}
   ${[...lines, ...extra].slice(0, 4).map((line, index) => `
-    <text x="${x + 20}" y="${y + 68 + index * 22}" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#111111">${escapeXml(truncate(line, 28))}</text>`).join("")}`;
+    <text x="${x + 20}" y="${y + 66 + index * 22}" font-family="Arial, sans-serif" font-size="17" font-weight="900" fill="${index === 0 ? theme.deep : "#111111"}">${escapeXml(truncate(line, 28))}</text>`).join("")}`;
 }
 
-function buildAbilitiesPanel(x: number, y: number, abilities: string[]): string {
+function buildAbilitiesPanel(x: number, y: number, abilities: string[], theme: TypeTheme): string {
   const lines = abilities.length > 0 ? abilities : ["Unknown"];
 
   return `
-  <rect x="${x}" y="${y}" width="286" height="140" fill="#f2f2e8" stroke="#151515" stroke-width="4"/>
-  <text x="${x + 20}" y="${y + 36}" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#111111">HABILIDADES</text>
+  ${buildPanelFrame(x, y, 286, "HABILIDADES", theme)}
   ${lines.slice(0, 4).map((line, index) => `
-    <text x="${x + 20}" y="${y + 68 + index * 22}" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="#111111">${escapeXml(truncate(line, 27))}</text>`).join("")}`;
+    <text x="${x + 20}" y="${y + 66 + index * 22}" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="${index === 0 ? theme.deep : "#111111"}">${escapeXml(truncate(line, 27))}</text>`).join("")}`;
 }
 
-function buildStatsPanel(x: number, y: number, stats: PokedexDetails["baseStats"]): string {
+function buildStatsPanel(x: number, y: number, stats: PokedexDetails["baseStats"], theme: TypeTheme): string {
   const rows: Array<[string, number, number, number]> = [
     ["HP", stats.hp, x + 20, y + 68],
     ["ATK", stats.attack, x + 20, y + 94],
@@ -232,11 +276,10 @@ function buildStatsPanel(x: number, y: number, stats: PokedexDetails["baseStats"
   ];
 
   return `
-  <rect x="${x}" y="${y}" width="284" height="140" fill="#f2f2e8" stroke="#151515" stroke-width="4"/>
-  <text x="${x + 20}" y="${y + 36}" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#111111">ATRIBUTOS BASE</text>
+  ${buildPanelFrame(x, y, 284, "ATRIBUTOS BASE", theme)}
   ${rows.map(([label, value, rowX, rowY]) => `
     <text x="${rowX}" y="${rowY}" font-family="Consolas, Arial, sans-serif" font-size="19" font-weight="900" fill="#111111">${label}</text>
-    <text x="${rowX + 72}" y="${rowY}" text-anchor="end" font-family="Consolas, Arial, sans-serif" font-size="19" font-weight="900" fill="#111111">${value}</text>`).join("")}`;
+    <text x="${rowX + 72}" y="${rowY}" text-anchor="end" font-family="Consolas, Arial, sans-serif" font-size="19" font-weight="900" fill="${resolveStatColor(value, theme)}">${value}</text>`).join("")}`;
 }
 
 function isListQuery(query: string): boolean {
@@ -244,28 +287,48 @@ function isListQuery(query: string): boolean {
   return ["kanto", "lista", "list", "indice", "index"].includes(normalized);
 }
 
-function resolveTypeColor(type: string | undefined): { primary: number; badge: string; light: string; soft: string } {
+function resolveStatColor(value: number, theme: TypeTheme): string {
+  if (value >= 90) {
+    return "#17884f";
+  }
+  if (value >= 70) {
+    return theme.deep;
+  }
+  if (value >= 50) {
+    return "#9d6f00";
+  }
+  return "#4c5661";
+}
+
+function resolveTypeColor(type: string | undefined): TypeTheme {
   const key = type?.toLowerCase() ?? "normal";
-  const normal = { primary: 0xa0a29f, badge: "#7f837e", light: "#eeeeea", soft: "#c8cac4" };
-  const colors: Record<string, { primary: number; badge: string; light: string; soft: string }> = {
-    bug: { primary: 0x92bc2c, badge: "#7b9f23", light: "#e7f3ba", soft: "#bfdc6a" },
-    dark: { primary: 0x595761, badge: "#595761", light: "#d5d4da", soft: "#8f8b9b" },
-    dragon: { primary: 0x0c69c8, badge: "#0c69c8", light: "#c8dcf5", soft: "#73a7df" },
-    electric: { primary: 0xf2d94e, badge: "#caa51a", light: "#fff1a6", soft: "#f4d94c" },
-    fairy: { primary: 0xee90e6, badge: "#d36acb", light: "#fde0f9", soft: "#efa3e8" },
-    fighting: { primary: 0xd3425f, badge: "#bd334f", light: "#f2c3cc", soft: "#df7d91" },
-    fire: { primary: 0xfba54c, badge: "#dc6f20", light: "#ffe0bd", soft: "#f69e43" },
-    flying: { primary: 0xa1bbec, badge: "#6f90ce", light: "#dce8ff", soft: "#a1bbec" },
-    ghost: { primary: 0x5f6dbc, badge: "#505cab", light: "#d8dcff", soft: "#8790d1" },
-    grass: { primary: 0x5fbd58, badge: "#449d43", light: "#d7f2d4", soft: "#80cf79" },
-    ground: { primary: 0xda7c4d, badge: "#be6337", light: "#f2d3c0", soft: "#dc8b63" },
-    ice: { primary: 0x75d0c1, badge: "#58b6a7", light: "#d9fbf5", soft: "#91ded1" },
+  const normal: TypeTheme = {
+    primary: 0xa0a29f,
+    badge: "#70766f",
+    light: "#eeeeea",
+    soft: "#c8cac4",
+    accent: "#cfd5cc",
+    deep: "#4f5851"
+  };
+  const colors: Record<string, TypeTheme> = {
+    bug: { primary: 0x92bc2c, badge: "#6d9120", light: "#e7f3ba", soft: "#bfdc6a", accent: "#d4ec74", deep: "#536f17" },
+    dark: { primary: 0x595761, badge: "#595761", light: "#d5d4da", soft: "#8f8b9b", accent: "#b2afbd", deep: "#3e3c47" },
+    dragon: { primary: 0x0c69c8, badge: "#0c69c8", light: "#c8dcf5", soft: "#73a7df", accent: "#76b8ff", deep: "#084b91" },
+    electric: { primary: 0xf2d94e, badge: "#caa51a", light: "#fff1a6", soft: "#f4d94c", accent: "#ffe35a", deep: "#9b7600" },
+    fairy: { primary: 0xee90e6, badge: "#d36acb", light: "#fde0f9", soft: "#efa3e8", accent: "#ffc2f4", deep: "#9d3996" },
+    fighting: { primary: 0xd3425f, badge: "#bd334f", light: "#f2c3cc", soft: "#df7d91", accent: "#ff8ca0", deep: "#8c2137" },
+    fire: { primary: 0xfba54c, badge: "#dc6f20", light: "#ffe0bd", soft: "#f69e43", accent: "#ffb565", deep: "#a84712" },
+    flying: { primary: 0xa1bbec, badge: "#6f90ce", light: "#dce8ff", soft: "#a1bbec", accent: "#c2d8ff", deep: "#456aa5" },
+    ghost: { primary: 0x5f6dbc, badge: "#505cab", light: "#d8dcff", soft: "#8790d1", accent: "#adb5ff", deep: "#374187" },
+    grass: { primary: 0x5fbd58, badge: "#449d43", light: "#d7f2d4", soft: "#80cf79", accent: "#a9ed93", deep: "#2f7d2e" },
+    ground: { primary: 0xda7c4d, badge: "#be6337", light: "#f2d3c0", soft: "#dc8b63", accent: "#f1ae83", deep: "#8d4522" },
+    ice: { primary: 0x75d0c1, badge: "#58b6a7", light: "#d9fbf5", soft: "#91ded1", accent: "#adf3e9", deep: "#3a8d82" },
     normal,
-    poison: { primary: 0xb763cf, badge: "#9950ad", light: "#efd5f6", soft: "#c486d5" },
-    psychic: { primary: 0xfa8581, badge: "#d8616c", light: "#ffe0df", soft: "#f49394" },
-    rock: { primary: 0xc9bb8a, badge: "#9b8d5f", light: "#eee8d2", soft: "#d0c38f" },
-    steel: { primary: 0x5695a3, badge: "#497f8b", light: "#d1e7eb", soft: "#85b7c0" },
-    water: { primary: 0x539ddf, badge: "#3f83c4", light: "#dcefff", soft: "#8fc5f4" }
+    poison: { primary: 0xb763cf, badge: "#9950ad", light: "#efd5f6", soft: "#c486d5", accent: "#dda5ea", deep: "#783785" },
+    psychic: { primary: 0xfa8581, badge: "#d8616c", light: "#ffe0df", soft: "#f49394", accent: "#ffb4b1", deep: "#a63d49" },
+    rock: { primary: 0xc9bb8a, badge: "#9b8d5f", light: "#eee8d2", soft: "#d0c38f", accent: "#dfd19a", deep: "#756733" },
+    steel: { primary: 0x5695a3, badge: "#497f8b", light: "#d1e7eb", soft: "#85b7c0", accent: "#aad5dc", deep: "#34636e" },
+    water: { primary: 0x539ddf, badge: "#3f83c4", light: "#dcefff", soft: "#8fc5f4", accent: "#a7d9ff", deep: "#2e67a0" }
   };
 
   return colors[key] ?? normal;

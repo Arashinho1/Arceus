@@ -149,7 +149,13 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
       async execute(context) {
         const subcommand = context.args[0]?.toLowerCase();
         if (!subcommand) {
-          await context.message.reply(await buildTrainerMapPayload(buildTrainerProfileFromMessage(context.message)));
+          await context.message.reply(
+            await buildTrainerMapPayload(
+              context.services,
+              buildTrainerProfileFromMessage(context.message),
+              context.message.channelId
+            )
+          );
           return;
         }
 

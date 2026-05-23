@@ -206,8 +206,22 @@ export async function buildTrainerBoxPayload(
   return buildTrainerPokemonCollectionPayload(services, profile, "box", page);
 }
 
-export async function buildTrainerMapPayload(profile: TrainerMenuProfile): Promise<TrainerMenuPayload> {
-  const payload = await buildKantoMapCardPayload();
+export async function buildTrainerMapPayload(
+  services: AppServices,
+  profile: TrainerMenuProfile,
+  channelId?: string | null
+): Promise<TrainerMenuPayload> {
+  const currentMap = channelId
+    ? await services.prisma.gameMap.findUnique({
+        where: { channelId },
+        select: {
+          name: true
+        }
+      })
+    : null;
+  const payload = await buildKantoMapCardPayload({
+    currentLocationName: currentMap?.name ?? null
+  });
 
   return {
     embeds: payload.embeds,
@@ -256,7 +270,7 @@ export async function handleTrainerMenuInteraction(
   }
 
   if (parsed.action === "map") {
-    await editTrainerMenuReply(interaction, await buildTrainerMapPayload(profile));
+    await editTrainerMenuReply(interaction, await buildTrainerMapPayload(services, profile, interaction.channelId));
     return;
   }
 

@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits } from "discord.js";
+import { Client, Events, GatewayIntentBits } from "discord.js";
 import { env } from "./config/env.js";
 import { createCommandRegistry } from "./bot/commands/createCommandRegistry.js";
 import { buildInteractionCreateHandler } from "./bot/events/interactionCreate.js";
@@ -12,8 +12,12 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
-client.once("ready", (readyClient) => {
+client.once(Events.ClientReady, (readyClient) => {
   console.log(`Arceus online como ${readyClient.user.tag}. Prefixo: ${env.botPrefix}`);
+});
+
+client.on(Events.Error, (error) => {
+  console.error("Erro no cliente Discord:", error);
 });
 
 client.on("messageCreate", buildMessageCreateHandler({ prefix: env.botPrefix, commands, services }));

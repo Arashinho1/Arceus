@@ -14,7 +14,14 @@ export function buildMessageCreateHandler(input: {
     }
 
     if (message.content.startsWith(input.prefix)) {
-      await dispatchCommand(message, input.prefix, input.commands, input.services);
+      try {
+        await dispatchCommand(message, input.prefix, input.commands, input.services);
+      } catch (error) {
+        console.error("Erro ao executar comando:", error);
+        if (message.channel.isSendable()) {
+          await message.reply("Nao consegui executar esse comando agora. O erro foi registrado no console.");
+        }
+      }
       return;
     }
 

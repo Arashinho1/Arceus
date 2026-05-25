@@ -1,10 +1,9 @@
-import { EncounterState, type Encounter, type MapSpawn, type PokemonSpecies, type PrismaClient } from "@prisma/client";
-import { weightedChoice, rollChance } from "../../utils/random.js";
+import { EncounterState, type Encounter, type PokemonSpecies, type PrismaClient } from "@prisma/client";
+import { rollChance } from "../../utils/random.js";
 import { PokemonGeneratorService } from "../pokemon/PokemonGeneratorService.js";
 import { type CooldownStore, InMemoryCooldownStore } from "./CooldownStore.js";
+import { SpawnPoolService } from "./SpawnPoolService.js";
 import { UserService } from "../users/UserService.js";
-
-type SpawnWithSpecies = MapSpawn & { species: PokemonSpecies };
 
 export type SpawnMessageInput = {
   guildId: string;
@@ -25,6 +24,7 @@ export class SpawnService {
   constructor(
     private readonly prisma: PrismaClient,
     private readonly pokemonGenerator: PokemonGeneratorService,
+    private readonly spawnPool: SpawnPoolService,
     private readonly cooldownStore: CooldownStore = new InMemoryCooldownStore()
   ) {
     this.userService = new UserService(prisma);
@@ -46,7 +46,7 @@ export class SpawnService {
       }
     });
 
-    if (!map || !map.isActive || map.spawns.length === 0) {
+    if (!map || !map.isActive) {
       return null;
     }
 
@@ -71,7 +71,7 @@ export class SpawnService {
       return null;
     }
 
-    const selectedSpawn = weightedChoice(map.spawns, (spawn: SpawnWithSpecies) => spawn.weight);
+    const selectedSpawn = await this.spawnPool.pickSpawn(map);
     if (!selectedSpawn) {
       return null;
     }

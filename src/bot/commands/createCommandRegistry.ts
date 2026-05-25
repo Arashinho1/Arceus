@@ -53,7 +53,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
     {
       name: "pokedex",
       aliases: ["dex", "pokemon", "p"],
-      description: "Mostra a Pokédex de Kanto.",
+      description: "Mostra a National Dex ou uma Pokédex regional.",
       async execute({ message, services, rawArgs, prefix }) {
         await message.reply(await buildPokedexPayload(services, prefix, rawArgs));
       }

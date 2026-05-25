@@ -6,13 +6,19 @@ import type {
   PokedexEvolutionStage,
   PokedexListEntry
 } from "../../services/pokedex/PokedexService.js";
+import {
+  getRegionDefinition,
+  resolveRegionFilter,
+  type RegionFilter
+} from "../../domain/pokemon/regions.js";
 import { fetchImageDataUri } from "../assets/imageCache.js";
 
-const INDEX_FILE_NAME = "pokedex-kanto.png";
+const INDEX_FILE_NAME = "pokedex-index.png";
 const ENTRY_FILE_NAME = "pokedex-entry.png";
 const INDEX_WIDTH = 1200;
 const ENTRY_WIDTH = 960;
 const ENTRY_HEIGHT = 1000;
+const INDEX_ENTRIES_PER_PAGE = 153;
 
 type PokedexPayload = {
   content?: string;
@@ -26,6 +32,7 @@ type PokedexSpawnArea = {
   minLevel: number;
   maxLevel: number;
   weight: number;
+  source: string;
 };
 
 type TypeTheme = {
@@ -47,26 +54,29 @@ export async function buildPokedexPayload(
   rawArgs: string
 ): Promise<PokedexPayload> {
   try {
-    const query = rawArgs.trim();
-    if (!query || isListQuery(query)) {
-      const entries = await services.pokedex.listKantoSpecies();
-      const image = await renderKantoIndex(entries, prefix);
+    const request = parseDexRequest(rawArgs);
+    if (request.mode === "list") {
+      const entries = await services.pokedex.listSpecies(request.region);
+      const image = await renderDexIndex(entries, prefix, request.region, request.page);
+      const totalPages = Math.max(1, Math.ceil(entries.length / INDEX_ENTRIES_PER_PAGE));
+      const currentPage = clampPage(request.page, totalPages);
+      const label = formatDexTitle(request.region);
       return {
         embeds: [
           new EmbedBuilder()
             .setColor(0x2f80d0)
-            .setTitle("Pokédex de Kanto")
-            .setDescription(`Use \`${prefix}dex pikachu\` ou \`${prefix}dex 25\` para abrir uma ficha.`)
+            .setTitle(label)
+            .setDescription(`Use \`${prefix}dex pikachu\`, \`${prefix}dex kanto\` ou \`${prefix}dex national 2\`.`)
             .setImage(`attachment://${INDEX_FILE_NAME}`)
-            .setFooter({ text: `Kanto: ${entries.length} espécies | Fonte: PokeAPI` })
+            .setFooter({ text: `${label}: ${entries.length} espécies | Página ${currentPage}/${totalPages} | Fonte: PokeAPI` })
         ],
         files: [new AttachmentBuilder(image, { name: INDEX_FILE_NAME })]
       };
     }
 
-    const details = await services.pokedex.getKantoDetails(query);
+    const details = await services.pokedex.getDetails(request.query, request.region);
     if (!details) {
-      return { content: `Não encontrei essa espécie na Pokédex de Kanto. Use \`${prefix}pokedex\` para ver a lista.` };
+      return { content: `Não encontrei essa espécie na Pokédex. Use \`${prefix}pokedex\`, \`${prefix}pokedex national\` ou um filtro de região.` };
     }
 
     const areas = await loadConfiguredSpawnAreas(services, details.slug);
@@ -87,13 +97,21 @@ export async function buildPokedexPayload(
   }
 }
 
-async function renderKantoIndex(entries: PokedexListEntry[], prefix: string): Promise<Buffer> {
+async function renderDexIndex(
+  entries: PokedexListEntry[],
+  prefix: string,
+  region: RegionFilter,
+  page: number
+): Promise<Buffer> {
   const columns = 3;
-  const rowsPerColumn = Math.ceil(entries.length / columns);
+  const totalPages = Math.max(1, Math.ceil(entries.length / INDEX_ENTRIES_PER_PAGE));
+  const currentPage = clampPage(page, totalPages);
+  const pageEntries = entries.slice((currentPage - 1) * INDEX_ENTRIES_PER_PAGE, currentPage * INDEX_ENTRIES_PER_PAGE);
+  const rowsPerColumn = Math.ceil(pageEntries.length / columns);
   const rowHeight = 26;
   const listTop = 154;
   const height = listTop + rowsPerColumn * rowHeight + 120;
-  const svg = buildKantoIndexSvg(entries, prefix, height, rowsPerColumn, rowHeight, listTop);
+  const svg = buildDexIndexSvg(pageEntries, prefix, region, currentPage, totalPages, entries.length, height, rowsPerColumn, rowHeight, listTop);
 
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
@@ -129,42 +147,29 @@ function selectEvolutionStages(stages: PokedexEvolutionStage[], currentSlug: str
 }
 
 async function loadConfiguredSpawnAreas(services: AppServices, speciesSlug: string): Promise<PokedexSpawnArea[]> {
-  const spawns = await services.prisma.mapSpawn.findMany({
-    where: {
-      enabled: true,
-      species: { slug: speciesSlug },
-      map: { isActive: true }
-    },
-    include: {
-      map: {
-        select: {
-          name: true,
-          biome: true
-        }
-      }
-    },
-    take: 8
-  });
-
-  return spawns
-    .map((spawn) => ({
-      name: spawn.map.name,
-      biome: spawn.map.biome,
-      minLevel: spawn.minLevel,
-      maxLevel: spawn.maxLevel,
-      weight: spawn.weight
-    }))
-    .sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
+  return services.spawnPool.describeSpeciesAreas(speciesSlug);
 }
 
-function buildKantoIndexSvg(
+function buildDexIndexSvg(
   entries: PokedexListEntry[],
   prefix: string,
+  region: RegionFilter,
+  page: number,
+  totalPages: number,
+  totalEntries: number,
   height: number,
   rowsPerColumn: number,
   rowHeight: number,
   listTop: number
 ): string {
+  const regionDefinition = getRegionDefinition(region);
+  const title = region === "national" ? "POKÉDEX NACIONAL" : (regionDefinition?.dexLabel ?? "Pokédex").toUpperCase();
+  const rangeLabel = region === "national"
+    ? "ID 1-1025"
+    : regionDefinition
+      ? `ID ${regionDefinition.minDex}-${regionDefinition.maxDex}`
+      : "ID";
+  const pageLabel = totalPages > 1 ? `PÁG. ${page}/${totalPages}` : rangeLabel;
   const rows = entries.map((entry, index) => {
     const column = Math.floor(index / rowsPerColumn);
     const row = index % rowsPerColumn;
@@ -190,11 +195,11 @@ function buildKantoIndexSvg(
   <rect width="${INDEX_WIDTH}" height="${height}" fill="#1d3556"/>
   <rect x="18" y="18" width="${INDEX_WIDTH - 36}" height="${height - 36}" rx="0" fill="url(#shell)" stroke="#07101e" stroke-width="8"/>
   <rect x="40" y="42" width="${INDEX_WIDTH - 80}" height="${height - 120}" fill="#fff0bd" stroke="#12335a" stroke-width="5"/>
-  <text x="68" y="104" font-family="Consolas, Arial, sans-serif" font-size="32" font-weight="900" fill="#173056">POKÉDEX DE KANTO</text>
-  <text x="${INDEX_WIDTH - 68}" y="104" text-anchor="end" font-family="Consolas, Arial, sans-serif" font-size="22" font-weight="800" fill="#9b1726">ID 1-151</text>
+  <text x="68" y="104" font-family="Consolas, Arial, sans-serif" font-size="32" font-weight="900" fill="#173056">${escapeXml(title)}</text>
+  <text x="${INDEX_WIDTH - 68}" y="104" text-anchor="end" font-family="Consolas, Arial, sans-serif" font-size="22" font-weight="800" fill="#9b1726">${escapeXml(pageLabel)}</text>
   ${rows}
   <text x="64" y="${height - 48}" font-family="Arial, sans-serif" font-size="22" font-weight="800" fill="#f9fbff">Use ${escapeXml(prefix)}dex 25 ou ${escapeXml(prefix)}dex pikachu</text>
-  <text x="${INDEX_WIDTH - 64}" y="${height - 48}" text-anchor="end" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#f9fbff">Fonte: PokeAPI</text>
+  <text x="${INDEX_WIDTH - 64}" y="${height - 48}" text-anchor="end" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#f9fbff">${totalEntries} espécies | Fonte: PokeAPI</text>
 </svg>`;
 }
 
@@ -412,9 +417,57 @@ function buildStatsPanel(x: number, y: number, stats: PokedexDetails["baseStats"
     <text x="${valueX}" y="${rowY}" font-family="Consolas, Arial, sans-serif" font-size="19" font-weight="900" fill="${resolveStatColor(value, theme)}">${value}</text>`).join("")}`;
 }
 
-function isListQuery(query: string): boolean {
-  const normalized = query.trim().toLowerCase();
-  return ["kanto", "lista", "list", "indice", "index"].includes(normalized);
+type DexRequest =
+  | { mode: "list"; region: RegionFilter; page: number }
+  | { mode: "details"; region: RegionFilter; query: string };
+
+function parseDexRequest(rawArgs: string): DexRequest {
+  const tokens = rawArgs.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) {
+    return { mode: "list", region: "national", page: 1 };
+  }
+
+  const firstRegion = resolveRegionFilter(tokens[0]);
+  if (firstRegion) {
+    const rest = tokens.slice(1);
+    const page = parsePage(rest[0]);
+    if (rest.length === 0 || page !== null) {
+      return { mode: "list", region: firstRegion, page: page ?? 1 };
+    }
+
+    return { mode: "details", region: firstRegion, query: rest.join(" ") };
+  }
+
+  const normalized = normalizeQuery(rawArgs);
+  if (["lista", "list", "indice", "índice", "index"].includes(normalized)) {
+    return { mode: "list", region: "national", page: 1 };
+  }
+
+  return { mode: "details", region: "national", query: rawArgs.trim() };
+}
+
+function parsePage(raw: string | undefined): number | null {
+  if (!raw || !/^\d+$/.test(raw)) {
+    return null;
+  }
+
+  return Math.max(1, Number(raw));
+}
+
+function clampPage(page: number, totalPages: number): number {
+  return Math.min(totalPages, Math.max(1, Math.floor(page)));
+}
+
+function formatDexTitle(region: RegionFilter): string {
+  return region === "national" ? "Pokédex Nacional" : getRegionDefinition(region)?.dexLabel ?? "Pokédex";
+}
+
+function normalizeQuery(value: string): string {
+  return value
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 function resolveStatColor(value: number, theme: TypeTheme): string {

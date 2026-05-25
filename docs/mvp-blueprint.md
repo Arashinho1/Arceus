@@ -50,13 +50,16 @@ Usei `GameMap` no Prisma para evitar confusão com o `Map` nativo do JavaScript,
 Implementados no starter:
 
 - `.ping`
-- `.pokedex` ou `.dex` (aliases de transicao: `.pokemon` e `.p`)
+- `.pokedex` ou `.dex` (aliases de transição: `.pokemon` e `.p`)
+  - Sem argumento, mostra a National Dex.
+  - Filtros de lista: `.dex kanto`, `.dex johto`, `.dex hoenn`, `.dex sinnoh`, `.dex unova`, `.dex kalos`, `.dex alola`, `.dex galar`, `.dex paldea`.
+  - Busca direta por nome ou número usa a National Dex: `.dex sentret`, `.dex 161`.
 - `.equipe`
 - `.box`
 - `.inventario` ou `.inv`
 - `.viajar <destino>` ou `.viajar voltar`
 - `.fly <cidade>`
-- `.mapa criar #canal | Rota 01 | grama | 1 | 8 | descricao`
+- `.mapa criar #canal | Rota 01 | grama | 1 | 8 | descrição`
 - `.mapa spawn #canal | pidgey | 80 | 2 | 5 | 0.000244`
 
 Comandos alvo do MVP:
@@ -86,13 +89,16 @@ Se quiser slash commands depois, mantenha os serviços iguais e crie novos adapt
 3. `SpawnService` verifica se o canal é um `GameMap` ativo.
 4. O serviço bloqueia spam verificando encontro ativo no canal e cooldown.
 5. O serviço rola `spawnChance` do mapa.
-6. Se passar, escolhe um `MapSpawn` por peso de raridade.
+6. Se passar, escolhe a pool de spawn por peso de raridade.
+   - Spawns manuais em `MapSpawn` continuam funcionando como override.
+   - Se o mapa não tiver cadastro manual suficiente, o bot calcula uma pool automática pela região do mapa, bioma, geração da espécie e catch rate.
+   - A proporção base é nativo/regional, migrante nacional compatível com bioma e raro controlado, com cache por mapa para não recalcular a cada mensagem.
 7. `PokemonGeneratorService` gera level, gênero, shiny, nature, ability, IVs, EVs zerados, HP e moves.
 8. O encontro é salvo em `Encounter`.
 9. O bot envia embed com botões `Ver Detalhes`, `Capturar`, `Batalhar`, `Ignorar`.
 10. O `messageId` do embed é gravado no encontro para edição futura.
 
-Implementação principal: `src/services/spawn/SpawnService.ts`.
+Implementação principal: `src/services/spawn/SpawnService.ts` e `src/services/spawn/SpawnPoolService.ts`.
 
 ## 5. Fluxo do sistema de captura
 

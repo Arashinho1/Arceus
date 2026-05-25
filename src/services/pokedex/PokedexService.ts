@@ -1,7 +1,13 @@
 import { STAT_KEYS, type StatKey, type StatTable } from "../../domain/pokemon/types.js";
+import {
+  getRegionDefinition,
+  getRegionForDexNumber,
+  type RegionFilter
+} from "../../domain/pokemon/regions.js";
 
 const POKEAPI_BASE_URL = "https://pokeapi.co/api/v2";
 const KANTO_POKEDEX_URL = `${POKEAPI_BASE_URL}/pokedex/kanto`;
+const NATIONAL_POKEDEX_URL = `${POKEAPI_BASE_URL}/pokedex/national`;
 const TRANSLATE_URL = "https://translate.googleapis.com/translate_a/single";
 const FETCH_TIMEOUT_MS = 8000;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
@@ -10,11 +16,11 @@ export type PokedexListEntry = {
   dexNumber: number;
   slug: string;
   name: string;
+  region: string;
   sourceUrl: string;
 };
 
 export type PokedexDetails = PokedexListEntry & {
-  region: "Kanto";
   genus: string;
   flavorText: string;
   heightText: string;
@@ -127,48 +133,58 @@ type PokeApiPokemon = {
 };
 
 export class PokedexService {
-  private kantoCache: CacheEntry<PokedexListEntry[]> | null = null;
+  private readonly listCache = new Map<RegionFilter, CacheEntry<PokedexListEntry[]>>();
   private readonly detailCache = new Map<string, CacheEntry<PokedexDetails>>();
 
   async listKantoSpecies(): Promise<PokedexListEntry[]> {
+    return this.listSpecies("kanto");
+  }
+
+  async listSpecies(region: RegionFilter = "kanto"): Promise<PokedexListEntry[]> {
     const now = Date.now();
-    if (this.kantoCache?.pending) {
-      return this.kantoCache.pending;
+    const cached = this.listCache.get(region);
+    if (cached?.pending) {
+      return cached.pending;
     }
-    if (this.kantoCache?.value && this.kantoCache.expiresAt > now) {
-      return this.kantoCache.value;
+    if (cached?.value && cached.expiresAt > now) {
+      return cached.value;
     }
 
-    const previousValue = this.kantoCache?.value;
-    const pending = this.loadKantoSpecies();
-    this.kantoCache = {
+    const previousValue = cached?.value;
+    const pending = this.loadSpecies(region);
+    this.listCache.set(region, {
       expiresAt: now + CACHE_TTL_MS,
       value: previousValue ?? [],
       pending
-    };
+    });
 
     try {
       const value = await pending;
-      this.kantoCache = { expiresAt: Date.now() + CACHE_TTL_MS, value };
+      this.listCache.set(region, { expiresAt: Date.now() + CACHE_TTL_MS, value });
       return value;
     } catch (error) {
       if (previousValue && previousValue.length > 0) {
-        this.kantoCache = { expiresAt: Date.now() + 1000 * 60 * 5, value: previousValue };
+        this.listCache.set(region, { expiresAt: Date.now() + 1000 * 60 * 5, value: previousValue });
         return previousValue;
       }
-      this.kantoCache = null;
+      this.listCache.delete(region);
       throw error;
     }
   }
 
   async getKantoDetails(query: string): Promise<PokedexDetails | null> {
-    const entry = await this.findKantoEntry(query);
+    return this.getDetails(query, "kanto");
+  }
+
+  async getDetails(query: string, region: RegionFilter = "national"): Promise<PokedexDetails | null> {
+    const entry = await this.findEntry(query, region);
     if (!entry) {
       return null;
     }
 
     const now = Date.now();
-    const cached = this.detailCache.get(entry.slug);
+    const cacheKey = entry.slug;
+    const cached = this.detailCache.get(cacheKey);
     if (cached?.pending) {
       return cached.pending;
     }
@@ -177,7 +193,7 @@ export class PokedexService {
     }
 
     const pending = this.loadPokemonDetails(entry);
-    this.detailCache.set(entry.slug, {
+    this.detailCache.set(cacheKey, {
       expiresAt: now + CACHE_TTL_MS,
       value: cached?.value,
       pending
@@ -185,20 +201,20 @@ export class PokedexService {
 
     try {
       const value = await pending;
-      this.detailCache.set(entry.slug, { expiresAt: Date.now() + CACHE_TTL_MS, value });
+      this.detailCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, value });
       return value;
     } catch (error) {
       if (cached?.value) {
-        this.detailCache.set(entry.slug, { expiresAt: Date.now() + 1000 * 60 * 5, value: cached.value });
+        this.detailCache.set(cacheKey, { expiresAt: Date.now() + 1000 * 60 * 5, value: cached.value });
         return cached.value;
       }
-      this.detailCache.delete(entry.slug);
+      this.detailCache.delete(cacheKey);
       throw error;
     }
   }
 
-  private async findKantoEntry(query: string): Promise<PokedexListEntry | null> {
-    const entries = await this.listKantoSpecies();
+  private async findEntry(query: string, region: RegionFilter): Promise<PokedexListEntry | null> {
+    const entries = await this.listSpecies(region);
     const cleanedQuery = query.trim().replace(/^#/, "");
     if (!cleanedQuery) {
       return null;
@@ -222,16 +238,26 @@ export class PokedexService {
     ) ?? null;
   }
 
-  private async loadKantoSpecies(): Promise<PokedexListEntry[]> {
-    const data = await fetchJson<PokeApiPokedex>(KANTO_POKEDEX_URL);
-    return data.pokemon_entries
+  private async loadSpecies(region: RegionFilter): Promise<PokedexListEntry[]> {
+    const data = await fetchJson<PokeApiPokedex>(region === "kanto" ? KANTO_POKEDEX_URL : NATIONAL_POKEDEX_URL);
+    const entries = data.pokemon_entries
       .map((entry) => ({
         dexNumber: entry.entry_number,
         slug: entry.pokemon_species.name,
         name: formatSpeciesName(entry.pokemon_species.name),
+        region: getRegionForDexNumber(entry.entry_number)?.label ?? "National",
         sourceUrl: entry.pokemon_species.url
       }))
       .sort((left, right) => left.dexNumber - right.dexNumber);
+
+    if (region === "national") {
+      return entries;
+    }
+
+    const definition = getRegionDefinition(region);
+    return definition
+      ? entries.filter((entry) => entry.dexNumber >= definition.minDex && entry.dexNumber <= definition.maxDex)
+      : entries;
   }
 
   private async loadPokemonDetails(entry: PokedexListEntry): Promise<PokedexDetails> {
@@ -251,7 +277,6 @@ export class PokedexService {
 
     return {
       ...entry,
-      region: "Kanto",
       name,
       genus,
       flavorText,

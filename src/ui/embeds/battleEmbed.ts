@@ -40,7 +40,11 @@ async function renderBattleImage(view: BattleView): Promise<Buffer> {
     fetchImageDataUri(player?.spriteUrl),
     fetchImageDataUri(opponent?.spriteUrl)
   ]);
-  const svg = buildBattleSvg(view, player, opponent, playerSprite, opponentSprite);
+  const [playerTrimmedSprite, opponentTrimmedSprite] = await Promise.all([
+    trimSpriteDataUri(playerSprite),
+    trimSpriteDataUri(opponentSprite)
+  ]);
+  const svg = buildBattleSvg(view, player, opponent, playerTrimmedSprite, opponentTrimmedSprite);
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
@@ -69,10 +73,10 @@ function buildBattleSvg(
   <rect width="${CARD_WIDTH}" height="${CARD_HEIGHT}" rx="10" fill="#20242d"/>
   <rect x="22" y="22" width="856" height="476" rx="8" fill="url(#sky)"/>
   ${buildFieldBands()}
-  ${buildPlatform(560, 252, 250, 76, "#6dd556")}
-  ${buildPlatform(120, 390, 270, 78, "#5bcf62")}
-  ${buildPokemonSprite(opponent, opponentSprite, 598, 172, 150)}
-  ${buildPokemonSprite(player, playerSprite, 160, 300, 176)}
+  ${buildPlatform(610, 258, 270, 76, "#6dd556")}
+  ${buildPlatform(230, 402, 310, 82, "#5bcf62")}
+  ${buildPokemonSprite(opponent, opponentSprite, 610, 262, 138)}
+  ${buildPokemonSprite(player, playerSprite, 230, 408, 190)}
   ${buildPokemonPanel(opponent, 52, 46, "Oponente", view.turnSide === 2)}
   ${buildPokemonPanel(player, 522, 352, "Jogador", view.turnSide === 1)}
   ${buildBattleBadge(view)}
@@ -94,7 +98,10 @@ function buildPlatform(cx: number, cy: number, width: number, height: number, co
   <ellipse cx="${cx}" cy="${cy - 8}" rx="${width / 2 - 28}" ry="${height / 2 - 24}" fill="#7fe875" opacity="0.78"/>`;
 }
 
-function buildPokemonSprite(pokemon: BattlePokemonView | null, sprite: string | null, x: number, y: number, size: number): string {
+function buildPokemonSprite(pokemon: BattlePokemonView | null, sprite: string | null, centerX: number, footY: number, size: number): string {
+  const x = centerX - size / 2;
+  const y = footY - size;
+
   if (!pokemon) {
     return `<text x="${x + size / 2}" y="${y + size / 2}" text-anchor="middle" font-family="Arial" font-size="22" font-weight="800" fill="#eef4ff">Aguardando</text>`;
   }
@@ -104,7 +111,30 @@ function buildPokemonSprite(pokemon: BattlePokemonView | null, sprite: string | 
     <text x="${x + size / 2}" y="${y + size / 2 + 8}" text-anchor="middle" font-family="Arial" font-size="18" font-weight="800" fill="#273242">${escapeXml(pokemon.speciesName)}</text>`;
   }
 
-  return `<image href="${sprite}" x="${x}" y="${y}" width="${size}" height="${size}" style="image-rendering: pixelated"/>`;
+  return `<image href="${sprite}" x="${x}" y="${y}" width="${size}" height="${size}" preserveAspectRatio="xMidYMax meet" style="image-rendering: pixelated"/>`;
+}
+
+async function trimSpriteDataUri(sprite: string | null): Promise<string | null> {
+  if (!sprite) {
+    return null;
+  }
+
+  const buffer = decodeDataUri(sprite);
+  if (!buffer) {
+    return sprite;
+  }
+
+  try {
+    const trimmed = await sharp(buffer).trim({ threshold: 8 }).png().toBuffer();
+    return `data:image/png;base64,${trimmed.toString("base64")}`;
+  } catch {
+    return sprite;
+  }
+}
+
+function decodeDataUri(dataUri: string): Buffer | null {
+  const match = dataUri.match(/^data:[^;]+;base64,(.+)$/);
+  return match?.[1] ? Buffer.from(match[1], "base64") : null;
 }
 
 function buildPokemonPanel(pokemon: BattlePokemonView | null, x: number, y: number, label: string, activeTurn: boolean): string {

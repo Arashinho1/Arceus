@@ -1,6 +1,7 @@
 import type { ActivePokemonState, BattleWithParticipants, NarrativeBattleData } from "./BattleService.js";
 
 const MAX_LOG_LINES = 30;
+const PLAYER_ACTION_PROMPT = "Sua vez. Escreva uma ação com o ataque entre colchetes, como `Pikachu usa [Quick Attack]`, ou use `.atacar <ataque> | <narração opcional>`, `.passar` ou `.fugir`.";
 
 export function appendLog(data: NarrativeBattleData, lines: string[] | string): string[] {
   const nextLines = Array.isArray(lines) ? lines : [lines];
@@ -15,11 +16,13 @@ export function formatTurnPrompt(battle: BattleWithParticipants, data: Narrative
   }
 
   if (data.mode === "WILD" || data.mode === "NPC") {
-    return "Sua vez. Use `.atacar <ataque> | <narração opcional>`, `.passar` ou `.fugir`.";
+    return PLAYER_ACTION_PROMPT;
   }
 
   const participant = battle.participants.find((entry) => entry.side === data.turnSide);
-  return participant?.user ? `Agora é a vez de <@${participant.user.discordId}>.` : null;
+  return participant?.user
+    ? `Agora é a vez de <@${participant.user.discordId}>. Escreva uma ação com o ataque entre colchetes, como \`Pikachu usa [Quick Attack]\`.`
+    : null;
 }
 
 export function formatWinnerLine(data: NarrativeBattleData): string {

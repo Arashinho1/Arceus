@@ -56,6 +56,7 @@ Implementados no starter:
 - `.soltar <slot|nome|ref>`
 - `.trocar <slot|nome|ref>` ou `.voltar <slot|nome|ref>`
 - `.atacar <ataque> | <narração opcional>`
+- Ação narrativa sem comando: mensagem comum com exatamente um ataque entre colchetes, exemplo `Pikachu avança e usa [Quick Attack]`.
 - `.passar`
 - `.fugir`
 - `.usar <item> <pokemon>`
@@ -239,6 +240,7 @@ Hoje:
 - `BattleService` cria desafios PvP, batalhas selvagens e participantes no banco.
 - `Battle.data` guarda o estado narrativo: modo da batalha, turno atual, Pokemon ativos, HP, estágios temporários e log.
 - `.atacar` valida o golpe aprendido, rola precisão, calcula dano, crítico, STAB e efetividade.
+- Mensagens comuns com um ataque entre colchetes, como `Pikachu usa [Quick Attack]`, são reconhecidas como ação de batalha se o autor estiver em combate ativo e for o turno dele.
 - O catálogo em `src/domain/battle/moves.ts` define categoria física/especial/status, poder, precisão e efeitos.
 - Burn, paralysis, sleep e poison já são aplicados durante os turnos.
 - Habilidades iniciais já interferem no combate: Blaze, Torrent, Overgrow, Static, Keen Eye e Run Away.

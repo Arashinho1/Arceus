@@ -19,7 +19,7 @@ Para testar o fluxo de batalha, use `.battletest`, `.battletest 25` ou `.battlet
 
 Para testar a batalha narrativa jogável sem mexer na equipe real, use `.batalhar teste` ou `.batalhar teste 25`. O bot cria um NPC e um Pokemon temporários no mesmo nível, sem XP, moedas ou drops, e limpa o temporário quando a batalha termina.
 
-O combate principal é narrativo por turnos. Use `.batalha @jogador`, `.aceitar`, `.soltar <slot|nome>`, `.atacar <ataque> | <narração>`, `.trocar <slot|nome>`, `.passar` e `.fugir` para testar o MVP.
+O combate principal é narrativo por turnos. Use `.batalha @jogador`, `.aceitar`, `.soltar <slot|nome>`, `.trocar <slot|nome>`, `.passar` e `.fugir` para testar o MVP. No seu turno, também dá para escrever uma mensagem normal com o ataque entre colchetes, como `Pikachu avança e usa [Quick Attack]`; o bot reconhece o ataque e resolve a mecânica. `.atacar <ataque> | <narração>` continua disponível como atalho direto.
 
 O motor já calcula categoria física/especial/status, precisão, dano, crítico, efetividade, burn, paralysis, sleep, poison e habilidades iniciais como Blaze, Torrent, Overgrow, Static, Keen Eye e Run Away.
 

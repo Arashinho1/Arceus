@@ -1,6 +1,8 @@
+import { BattleState } from "@prisma/client";
 import type { Message } from "discord.js";
 import type { PrefixCommand } from "../commands/types.js";
 import type { AppServices } from "../../services/createServices.js";
+import { buildBattlePayload } from "../../ui/embeds/battleEmbed.js";
 import { buildEncounterActionRow, buildSpawnEmbed } from "../../ui/embeds/spawnEmbed.js";
 
 export function buildMessageCreateHandler(input: {
@@ -22,6 +24,10 @@ export function buildMessageCreateHandler(input: {
           await message.reply("Não consegui executar esse comando agora. O erro foi registrado no console.");
         }
       }
+      return;
+    }
+
+    if (await handleNarrativeBattleAction(message, input.services)) {
       return;
     }
 
@@ -50,6 +56,60 @@ export function buildMessageCreateHandler(input: {
   };
 }
 
+async function handleNarrativeBattleAction(message: Message, services: AppServices): Promise<boolean> {
+  const attacks = extractBracketedAttacks(message.content);
+  if (attacks.length === 0) {
+    return false;
+  }
+
+  const view = await services.battle.getActiveBattleView({
+    discordId: message.author.id,
+    username: message.author.username
+  });
+  if (!view) {
+    return true;
+  }
+
+  if (view.state !== BattleState.ACTIVE) {
+    return true;
+  }
+
+  const participant = view.participants.find((entry) => entry.discordId === message.author.id);
+  if (!participant) {
+    return true;
+  }
+
+  if (view.turnSide !== participant.side) {
+    await message.reply("Ainda não é a sua vez de agir nessa batalha.");
+    return true;
+  }
+
+  if (attacks.length > 1) {
+    await message.reply("Use apenas um ataque entre colchetes por ação narrativa.");
+    return true;
+  }
+
+  const attack = attacks[0];
+  if (!attack || attack.moveQuery.length === 0) {
+    await message.reply("Coloque o nome do ataque entre colchetes, por exemplo: Pikachu usa [Quick Attack].");
+    return true;
+  }
+
+  const content = await services.battle.attack({
+    discordId: message.author.id,
+    username: message.author.username,
+    moveQuery: attack.moveQuery,
+    narration: buildNarration(message.content, attack)
+  });
+  const latestView = await services.battle.getLatestBattleView({
+    discordId: message.author.id,
+    username: message.author.username
+  });
+
+  await message.reply(latestView ? await buildBattlePayload(latestView, content) : content);
+  return true;
+}
+
 async function dispatchCommand(
   message: Message,
   prefix: string,
@@ -74,4 +134,30 @@ async function dispatchCommand(
     prefix,
     services
   });
+}
+
+type NarrativeAttackMarker = {
+  fullMatch: string;
+  moveQuery: string;
+};
+
+function extractBracketedAttacks(content: string): NarrativeAttackMarker[] {
+  const matches = content.matchAll(/\[([^\[\]]*)\]/g);
+  return [...matches].map((match) => ({
+    fullMatch: match[0],
+    moveQuery: (match[1] ?? "").trim()
+  }));
+}
+
+function buildNarration(content: string, attack: NarrativeAttackMarker): string | undefined {
+  const narration = content.replace(attack.fullMatch, attack.moveQuery).trim();
+  return narration && normalizeText(narration) !== normalizeText(attack.moveQuery) ? narration : undefined;
+}
+
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
 }

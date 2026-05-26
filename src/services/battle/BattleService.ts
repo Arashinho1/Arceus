@@ -177,6 +177,8 @@ const ABILITY_TYPE_BOOST: Record<string, string> = {
   overgrow: "GRASS"
 };
 
+const PLAYER_ACTION_PROMPT = "Sua vez. Escreva uma ação com o ataque entre colchetes, como `Pikachu usa [Quick Attack]`, ou use `.atacar <ataque> | <narração opcional>`, `.passar` ou `.fugir`.";
+
 export class BattleService {
   private readonly rewards: BattleRewardService;
 
@@ -420,7 +422,7 @@ export class BattleService {
         `Batalha selvagem iniciada: **${playerActive.speciesName}** vs **${wildActive.speciesName}**.`,
         formatHpLine(playerActive),
         formatHpLine(wildActive),
-        "Sua vez. Use `.atacar <ataque> | <narração opcional>`, `.passar` ou `.fugir`."
+        PLAYER_ACTION_PROMPT
       ].join("\n")
     };
   }
@@ -511,7 +513,7 @@ export class BattleService {
         `Ambos estão no Lv.${level}. Essa batalha não concede XP, moedas ou drops.`,
         formatHpLine(playerActive),
         formatHpLine(npcActive),
-        "Sua vez. Use `.atacar <ataque> | <narração opcional>`, `.passar` ou `.fugir`."
+        PLAYER_ACTION_PROMPT
       ].join("\n")
     };
   }

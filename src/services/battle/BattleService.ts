@@ -628,9 +628,6 @@ export class BattleService {
     }
 
     const lines: string[] = [];
-    if (input.narration) {
-      lines.push(`Narrativa: ${input.narration}`);
-    }
 
     if (this.canActThroughStatus(context.data, context.side, lines)) {
       this.resolveMove(context.data, context.side, targetSide, learnedMove, lines);
@@ -792,7 +789,7 @@ export class BattleService {
     }
 
     const npcMove = pickNpcMove(npc, player);
-    lines.push(`${npc.speciesName} ${data.mode === "WILD" ? "selvagem" : "do NPC"} reagiu.`);
+    lines.push(`Turno de ${npc.speciesName} ${data.mode === "WILD" ? "selvagem" : "do NPC"}.`);
     if (this.canActThroughStatus(data, npcSide, lines)) {
       this.resolveMove(data, npcSide, actingSide, npcMove, lines);
     }
@@ -824,7 +821,8 @@ export class BattleService {
 
     const move = getMoveDefinition(moveName);
     if (move.type === "ELECTRIC" && target.types.includes("GROUND") && move.effects?.some((effect) => "status" in effect && effect.status === PokemonStatus.PARALYSIS)) {
-      lines.push(`${attacker.speciesName} usou ${move.name}, mas ${target.speciesName} não foi afetado por golpes elétricos.`);
+      lines.push(`${attacker.speciesName} usou ${move.name}.`);
+      lines.push(`**IMUNE.** ${target.speciesName} não foi afetado por golpes elétricos.`);
       return;
     }
 
@@ -833,7 +831,7 @@ export class BattleService {
     lines.push(`${attacker.speciesName} usou ${move.name}.`);
 
     if (randomInt(1, 100) > effectiveAccuracy) {
-      lines.push(`O ataque errou. Precisão efetiva: ${Math.round(effectiveAccuracy)}%.`);
+      lines.push(`**FALHOU.** O ataque errou. Precisão efetiva: ${Math.round(effectiveAccuracy)}%.`);
       return;
     }
 
@@ -868,14 +866,14 @@ export class BattleService {
     target.currentHp = Math.max(0, target.currentHp - damage);
     lines.push(`${target.speciesName} recebeu ${damage} de dano. HP: ${target.currentHp}/${target.maxHp}.`);
     if (critical) {
-      lines.push("Foi um golpe crítico.");
+      lines.push("**CRÍTICO!** O dano foi amplificado.");
     }
     if (effectiveness > 1) {
-      lines.push("Foi super efetivo.");
+      lines.push("**SUPER EFETIVO.**");
     } else if (effectiveness > 0 && effectiveness < 1) {
-      lines.push("Não foi muito efetivo.");
+      lines.push("**RESISTIDO.** Não foi muito efetivo.");
     } else if (effectiveness === 0) {
-      lines.push("Não teve efeito.");
+      lines.push("**IMUNE.** Não teve efeito.");
     }
 
     if (target.currentHp <= 0) {
@@ -897,7 +895,7 @@ export class BattleService {
   ): void {
     if (!move.effects || move.effects.length === 0) {
       if (move.category === "status") {
-        lines.push("O golpe acertou, mas esse efeito ainda não foi implementado no MVP 2.");
+        lines.push("**SEM EFEITO IMPLEMENTADO.** O golpe acertou, mas esse efeito ainda não foi implementado.");
       }
       return;
     }
@@ -905,6 +903,7 @@ export class BattleService {
     for (const effect of move.effects) {
       const chance = effect.chance ?? 100;
       if (randomInt(1, 100) > chance) {
+        lines.push(`**EFEITO SECUNDÁRIO FALHOU.** ${formatMoveEffect(effect)} não foi aplicado.`);
         continue;
       }
 
@@ -927,7 +926,7 @@ export class BattleService {
     const affectedSide = effect.target === "self" ? attackerSide : targetSide;
     const affected = data.activeBySide[sideKey(affectedSide)];
     if (affected && hasAbility(affected, "Keen Eye") && effect.stat === "accuracy" && effect.stages < 0) {
-      lines.push(`${affected.speciesName} manteve a precisão com Keen Eye.`);
+      lines.push(`**HABILIDADE: Keen Eye.** ${affected.speciesName} manteve a precisão.`);
       return;
     }
 
@@ -935,7 +934,7 @@ export class BattleService {
     const nextStage = clamp(currentStage + effect.stages, -6, 6);
     setStage(data, affectedSide, effect.stat, nextStage);
     const direction = effect.stages > 0 ? "aumentou" : "caiu";
-    lines.push(`${affected?.speciesName ?? "O alvo"} teve ${statLabel(effect.stat)} ${direction}. Estágio atual: ${nextStage}.`);
+    lines.push(`**MODIFICADOR.** ${affected?.speciesName ?? "O alvo"} teve ${statLabel(effect.stat)} ${direction}. Estágio atual: ${nextStage}.`);
   }
 
   private applyPersistentStatusEffect(
@@ -952,18 +951,20 @@ export class BattleService {
     }
 
     if (affected.status !== PokemonStatus.NONE) {
-      lines.push(`${affected.speciesName} já está com ${statusLabel(affected.status)}.`);
+      lines.push(`**STATUS BLOQUEADO.** ${affected.speciesName} já está com ${statusLabel(affected.status)}.`);
       return;
     }
 
     affected.status = effect.status;
+    let durationText = "";
     if (effect.status === PokemonStatus.SLEEP) {
       affected.statusTurns = randomInt(effect.minTurns ?? 1, effect.maxTurns ?? 3);
+      durationText = ` por ${affected.statusTurns} turno(s)`;
     } else {
       delete affected.statusTurns;
     }
 
-    lines.push(`${affected.speciesName} ficou com ${statusLabel(effect.status)}.`);
+    lines.push(`**STATUS: ${statusTitle(effect.status)}.** ${affected.speciesName} ficou com ${statusLabel(effect.status)}${durationText}.`);
   }
 
   private applyContactAbility(
@@ -982,7 +983,7 @@ export class BattleService {
 
     if (hasAbility(target, "Static") && attacker.status === PokemonStatus.NONE && randomInt(1, 100) <= 30) {
       attacker.status = PokemonStatus.PARALYSIS;
-      lines.push(`${target.speciesName} ativou Static. ${attacker.speciesName} ficou com paralisia.`);
+      lines.push(`**HABILIDADE: Static.** ${attacker.speciesName} ficou com ${statusLabel(PokemonStatus.PARALYSIS)}.`);
     }
   }
 
@@ -997,22 +998,22 @@ export class BattleService {
       if (turns <= 0) {
         active.status = PokemonStatus.NONE;
         delete active.statusTurns;
-        lines.push(`${active.speciesName} acordou.`);
+        lines.push(`**STATUS ENCERRADO: Sono.** ${active.speciesName} acordou.`);
         return true;
       }
 
       active.statusTurns = turns - 1;
-      lines.push(`${active.speciesName} está dormindo e não conseguiu agir.`);
+      lines.push(`**STATUS: Sono.** ${active.speciesName} está dormindo e não conseguiu agir.`);
       if (active.statusTurns <= 0) {
         active.status = PokemonStatus.NONE;
         delete active.statusTurns;
-        lines.push(`${active.speciesName} acordou.`);
+        lines.push(`**STATUS ENCERRADO: Sono.** ${active.speciesName} acordou.`);
       }
       return false;
     }
 
     if (active.status === PokemonStatus.PARALYSIS && randomInt(1, 100) <= 25) {
-      lines.push(`${active.speciesName} está paralisado e não conseguiu agir.`);
+      lines.push(`**STATUS: Paralisia.** ${active.speciesName} não conseguiu agir.`);
       return false;
     }
 
@@ -1031,7 +1032,7 @@ export class BattleService {
     }
 
     active.currentHp = Math.max(0, active.currentHp - damage);
-    lines.push(`${active.speciesName} sofreu ${damage} de dano por ${statusResidualLabel(active.status)}. HP: ${active.currentHp}/${active.maxHp}.`);
+    lines.push(`**DANO RESIDUAL: ${statusTitle(active.status)}.** ${active.speciesName} sofreu ${damage} de dano. HP: ${active.currentHp}/${active.maxHp}.`);
     if (active.currentHp <= 0) {
       lines.push(`${active.speciesName} não consegue mais lutar.`);
       data.winnerSide = getOpponentSide(side);
@@ -1605,16 +1606,41 @@ function statusLabel(status: PokemonStatus): string {
   return "sem status";
 }
 
-function statusResidualLabel(status: PokemonStatus): string {
+function statusTitle(status: PokemonStatus): string {
   if (status === PokemonStatus.BURN) {
-    return "queimadura";
+    return "Queimadura";
+  }
+
+  if (status === PokemonStatus.PARALYSIS) {
+    return "Paralisia";
+  }
+
+  if (status === PokemonStatus.SLEEP) {
+    return "Sono";
   }
 
   if (status === PokemonStatus.POISON) {
-    return "veneno";
+    return "Veneno";
   }
 
-  return "status";
+  if (status === PokemonStatus.FREEZE) {
+    return "Congelamento";
+  }
+
+  if (status === PokemonStatus.FAINTED) {
+    return "Desmaio";
+  }
+
+  return "Status";
+}
+
+function formatMoveEffect(effect: MoveEffect): string {
+  if ("stat" in effect) {
+    const direction = effect.stages > 0 ? "aumento" : "redução";
+    return `${direction} de ${statLabel(effect.stat)}`;
+  }
+
+  return statusTitle(effect.status);
 }
 
 function statLabel(stat: BattleStatStage): string {

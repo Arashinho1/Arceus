@@ -9,6 +9,7 @@ import {
   buildTrainerMapPayload,
   buildTrainerProfileFromMessage
 } from "../../ui/menu/trainerMenu.js";
+import { buildBattleTestEmbed } from "../../ui/embeds/battleTestEmbed.js";
 
 export function createCommandRegistry(services: AppServices): Map<string, PrefixCommand> {
   const commands: PrefixCommand[] = [
@@ -17,6 +18,175 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
       description: "Testa se o bot está online.",
       async execute({ message }) {
         await message.reply("Pong.");
+      }
+    },
+    {
+      name: "battletest",
+      aliases: ["bt"],
+      description: "Gera uma batalha aleatória para testar o fluxo de combate.",
+      async execute({ message, services, args, prefix }) {
+        const levelRange = parseBattleTestLevelRange(args);
+        if (typeof levelRange === "string") {
+          await message.reply(`${levelRange}\nUso: ${prefix}battletest [nivel] ou ${prefix}battletest [min] [max].`);
+          return;
+        }
+
+        const result = await services.battleTest.createRandomBattle({
+          discordId: message.author.id,
+          username: message.author.username,
+          minLevel: levelRange.minLevel,
+          maxLevel: levelRange.maxLevel
+        });
+
+        await message.reply({ embeds: [buildBattleTestEmbed(result)] });
+      }
+    },
+    {
+      name: "batalha",
+      aliases: ["duelo"],
+      description: "Chama outro jogador para uma batalha narrativa.",
+      async execute({ message, services, prefix }) {
+        const target = message.mentions.users.first();
+        if (!target) {
+          await message.reply(`Uso: ${prefix}batalha @jogador`);
+          return;
+        }
+
+        await message.reply(
+          await services.battle.challengePlayer({
+            challengerDiscordId: message.author.id,
+            challengerUsername: message.author.username,
+            targetDiscordId: target.id,
+            targetUsername: target.username
+          })
+        );
+      }
+    },
+    {
+      name: "aceitar",
+      description: "Aceita um desafio de batalha pendente.",
+      async execute({ message, services }) {
+        await message.reply(
+          await services.battle.acceptChallenge({
+            discordId: message.author.id,
+            username: message.author.username
+          })
+        );
+      }
+    },
+    {
+      name: "recusar",
+      description: "Recusa um desafio de batalha pendente.",
+      async execute({ message, services }) {
+        await message.reply(
+          await services.battle.declineChallenge({
+            discordId: message.author.id,
+            username: message.author.username
+          })
+        );
+      }
+    },
+    {
+      name: "soltar",
+      description: "Coloca um Pokémon da equipe em campo na batalha ativa.",
+      async execute({ message, services, rawArgs, prefix }) {
+        if (!rawArgs) {
+          await message.reply(`Uso: ${prefix}soltar <slot|nome|ref>`);
+          return;
+        }
+
+        await message.reply(
+          await services.battle.releasePokemon({
+            discordId: message.author.id,
+            username: message.author.username,
+            query: rawArgs
+          })
+        );
+      }
+    },
+    {
+      name: "trocar",
+      aliases: ["voltar"],
+      description: "Volta o Pokémon ativo e coloca outro em campo.",
+      async execute({ message, services, rawArgs, prefix }) {
+        if (!rawArgs) {
+          await message.reply(`Uso: ${prefix}trocar <slot|nome|ref>`);
+          return;
+        }
+
+        await message.reply(
+          await services.battle.switchPokemon({
+            discordId: message.author.id,
+            username: message.author.username,
+            query: rawArgs
+          })
+        );
+      }
+    },
+    {
+      name: "atacar",
+      aliases: ["ataque"],
+      description: "Usa um ataque aprendido pelo Pokémon em campo.",
+      async execute({ message, services, rawArgs, prefix }) {
+        const parsed = parseAttackInput(rawArgs);
+        if (!parsed.moveQuery) {
+          await message.reply(`Uso: ${prefix}atacar <ataque> | <narração opcional>`);
+          return;
+        }
+
+        await message.reply(
+          await services.battle.attack({
+            discordId: message.author.id,
+            username: message.author.username,
+            moveQuery: parsed.moveQuery,
+            narration: parsed.narration
+          })
+        );
+      }
+    },
+    {
+      name: "passar",
+      aliases: ["passarturno"],
+      description: "Passa o turno na batalha ativa.",
+      async execute({ message, services }) {
+        await message.reply(
+          await services.battle.passTurn({
+            discordId: message.author.id,
+            username: message.author.username
+          })
+        );
+      }
+    },
+    {
+      name: "fugir",
+      description: "Tenta fugir de batalha selvagem ou NPC.",
+      async execute({ message, services }) {
+        await message.reply(
+          await services.battle.flee({
+            discordId: message.author.id,
+            username: message.author.username
+          })
+        );
+      }
+    },
+    {
+      name: "usar",
+      description: "Usa um item fora de batalha.",
+      async execute({ message, services, rawArgs, prefix }) {
+        const parsed = parseUseItemInput(rawArgs);
+        if (!parsed) {
+          await message.reply(`Uso: ${prefix}usar <item> <pokemon>`);
+          return;
+        }
+
+        await message.reply(
+          await services.battle.useItemOutsideBattle({
+            discordId: message.author.id,
+            username: message.author.username,
+            itemQuery: parsed.itemQuery,
+            pokemonQuery: parsed.pokemonQuery
+          })
+        );
       }
     },
     {
@@ -277,6 +447,46 @@ function splitPipeArgs(raw: string): string[] {
 function parseListPage(raw: string | undefined): number {
   const page = Number(raw);
   return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+}
+
+function parseBattleTestLevelRange(args: string[]): { minLevel: number; maxLevel: number } | string {
+  if (args.length === 0) {
+    return { minLevel: 5, maxLevel: 20 };
+  }
+
+  const joinedRange = args[0]?.match(/^(\d+)-(\d+)$/);
+  const minRaw = joinedRange?.[1] ?? args[0];
+  const maxRaw = joinedRange?.[2] ?? args[1] ?? args[0];
+  const minLevel = Number(minRaw);
+  const maxLevel = Number(maxRaw);
+
+  if (!Number.isInteger(minLevel) || !Number.isInteger(maxLevel)) {
+    return "Os níveis precisam ser números inteiros.";
+  }
+
+  if (minLevel < 1 || maxLevel > 100 || minLevel > maxLevel) {
+    return "Use níveis entre 1 e 100, com o mínimo menor ou igual ao máximo.";
+  }
+
+  return { minLevel, maxLevel };
+}
+
+function parseAttackInput(rawArgs: string): { moveQuery: string; narration?: string } {
+  const [moveQuery = "", narration] = rawArgs.split("|").map((part) => part.trim());
+  return {
+    moveQuery,
+    ...(narration ? { narration } : {})
+  };
+}
+
+function parseUseItemInput(rawArgs: string): { itemQuery: string; pokemonQuery: string } | null {
+  const [itemQuery, ...pokemonParts] = rawArgs.trim().split(/\s+/);
+  const pokemonQuery = pokemonParts.join(" ").trim();
+  if (!itemQuery || !pokemonQuery) {
+    return null;
+  }
+
+  return { itemQuery, pokemonQuery };
 }
 
 async function setPokemonFavorite(

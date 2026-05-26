@@ -10,11 +10,8 @@ src/
   config/                     # Env e config de runtime
   database/                   # Prisma singleton
   domain/                     # Tipos e contratos puros do RPG
-  integrations/
-    local/                    # Motor local simplificado
-    showdown/                 # Futuro adapter Pokemon Showdown
   services/
-    battle/                   # BattleService e BattleEnginePort
+    battle/                   # BattleService narrativo por turnos
     capture/                  # CaptureService
     maps/                     # MapService
     pokemon/                  # PokemonGeneratorService
@@ -41,7 +38,7 @@ O schema está em `prisma/schema.prisma` e cobre:
 - `MapSpawn`: tabela de spawn por mapa com peso, level min/max, shiny chance, condições e recompensas.
 - `Item` e `Inventory`: itens e inventário por jogador.
 - `Encounter`: Pokemon selvagem ativo no canal.
-- `Battle` e `BattleParticipant`: base para batalha textual agora e Pokemon Showdown depois.
+- `Battle` e `BattleParticipant`: base para batalha narrativa por turnos.
 
 Usei `GameMap` no Prisma para evitar confusão com o `Map` nativo do JavaScript, mas a tabela física é `maps`.
 
@@ -50,6 +47,16 @@ Usei `GameMap` no Prisma para evitar confusão com o `Map` nativo do JavaScript,
 Implementados no starter:
 
 - `.ping`
+- `.battletest [nivel]` ou `.battletest [min] [max]`
+  - Gera uma batalha aleatória, persiste em `Battle`/`BattleParticipant`, simula turnos locais e mostra um resumo mecânico.
+- `.batalha @jogador`
+- `.aceitar` / `.recusar`
+- `.soltar <slot|nome|ref>`
+- `.trocar <slot|nome|ref>` ou `.voltar <slot|nome|ref>`
+- `.atacar <ataque> | <narração opcional>`
+- `.passar`
+- `.fugir`
+- `.usar <item> <pokemon>`
 - `.pokedex` ou `.dex` (aliases de transição: `.pokemon` e `.p`)
   - Sem argumento, mostra a National Dex.
   - Filtros de lista: `.dex kanto`, `.dex johto`, `.dex hoenn`, `.dex sinnoh`, `.dex unova`, `.dex kalos`, `.dex alola`, `.dex galar`, `.dex paldea`.
@@ -74,8 +81,6 @@ Comandos alvo do MVP:
 - `.colecao ver <id>`
 - `.colecao mover <id> equipe|box [slot]`
 - `.colecao liberar <id>`
-- `.item usar <item_slug> [pokemon_id]`
-- `.batalha desafiar @jogador`
 - `.admin dar item @jogador item_slug quantidade`
 - `.admin dar moeda @jogador quantidade`
 - `.admin dar pokemon @jogador pokemon_slug level`
@@ -189,11 +194,10 @@ Etapa 2, captura/equipe/box:
 - Criar paginação de box.
 - Adicionar logs de captura.
 
-Etapa 3, batalha textual local:
+Etapa 3, evolução da batalha narrativa:
 
-- Criar tela de batalha por embed.
-- Botões: atacar, trocar, item, fugir.
-- Implementar dano simplificado, accuracy, status básico e turnos.
+- Melhorar apresentação visual da batalha.
+- Expandir ataques, status, habilidades e regras de troca.
 - Conceder XP, EVs, moedas e drops ao vencer.
 
 Etapa 4, progressão:
@@ -220,26 +224,30 @@ Etapa 6, escala:
 - Testes unitários dos serviços de domínio.
 - Comandos slash opcionais.
 
-## 10. Integração futura com Pokemon Showdown
+## 10. Batalha narrativa
 
-O ponto de entrada é `BattleEnginePort` em `src/services/battle/BattleService.ts`.
+O ponto de entrada é `src/services/battle/BattleService.ts`.
 
 Hoje:
 
-- `LocalBattleEngine` permite batalha textual simplificada no Discord.
-- `BattleService` cria `Battle` e `BattleParticipant` no banco.
+- `BattleService` cria desafios PvP, batalhas selvagens e participantes no banco.
+- `Battle.data` guarda o estado narrativo: modo da batalha, turno atual, Pokemon ativos, HP, estágios temporários e log.
+- `.atacar` valida o golpe aprendido, rola precisão, calcula dano, crítico, STAB e efetividade.
+- O catálogo em `src/domain/battle/moves.ts` define categoria física/especial/status, poder, precisão e efeitos.
+- Burn, paralysis, sleep e poison já são aplicados durante os turnos.
+- Habilidades iniciais já interferem no combate: Blaze, Torrent, Overgrow, Static, Keen Eye e Run Away.
+- `.trocar` consome o turno quando a batalha já está em andamento.
+- `.usar` aplica itens de cura apenas fora de batalha.
+- `.fugir` funciona contra selvagens/NPCs e nunca contra outro jogador.
+- Vitória contra selvagem/NPC aplica recompensas reais: XP, moedas, EVs, level up, golpes aprendidos e evolução por nível quando a espécie de destino está cadastrada.
 
-Futuro:
+Próximos passos:
 
-- `ShowdownBattleEngine` conecta no servidor Pokemon Showdown.
-- Converte `PlayerPokemon` em formato de team do Showdown.
-- Cria ou entra em uma room.
-- Envia comandos de batalha para o protocolo do Showdown.
-- Espelha logs/turnos em embeds no Discord.
-- Persiste resultado final em `Battle.data`.
-- Aplica XP, EVs, evolução e recompensas depois do resultado.
-
-O importante é manter a regra de progressão fora do Showdown. Showdown decide batalha; o RPG decide recompensa, captura, evolução, inventário e progresso.
+- Catálogo completo de ataques com categoria física/especial/status.
+- Expandir golpes com efeitos secundários, prioridades e mais variações de status.
+- Habilidades automáticas adicionais.
+- Drops de item por mapa/encontro.
+- Recompensas e regras específicas para PvP.
 
 ## Preparação para interface 2D
 

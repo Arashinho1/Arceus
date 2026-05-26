@@ -15,6 +15,14 @@ Bot de RPG Pokemon para Discord, focado em texto, com canais funcionando como ma
 
 O MVP usa prefix commands com `.`. A arquitetura separa o handler do Discord dos serviços de domínio, então slash commands podem ser adicionados depois sem reescrever as regras do RPG.
 
+Para testar o fluxo de batalha, use `.battletest`, `.battletest 25` ou `.battletest 5 20`. O comando sorteia dois Pokemon, simula um combate local e mostra o resumo mecânico do resultado.
+
+O combate principal é narrativo por turnos. Use `.batalha @jogador`, `.aceitar`, `.soltar <slot|nome>`, `.atacar <ataque> | <narração>`, `.trocar <slot|nome>`, `.passar` e `.fugir` para testar o MVP.
+
+O motor já calcula categoria física/especial/status, precisão, dano, crítico, efetividade, burn, paralysis, sleep, poison e habilidades iniciais como Blaze, Torrent, Overgrow, Static, Keen Eye e Run Away.
+
+Ao vencer batalhas selvagens ou NPCs, o bot concede XP, moedas, EVs, level up, golpes aprendidos e evolução por nível quando a espécie evoluída estiver cadastrada.
+
 ## Rodando localmente
 
 ```bash
@@ -48,4 +56,4 @@ Veja o passo a passo em [DISCLOUD_DEPLOY.md](DISCLOUD_DEPLOY.md).
 
 ## Arquitetura
 
-Veja [docs/mvp-blueprint.md](docs/mvp-blueprint.md) para a arquitetura, schema, comandos, fluxos de spawn/captura, roadmap e pontos de integração futura com Pokemon Showdown.
+Veja [docs/mvp-blueprint.md](docs/mvp-blueprint.md) para a arquitetura, schema, comandos, fluxos de spawn/captura, roadmap e batalha narrativa.

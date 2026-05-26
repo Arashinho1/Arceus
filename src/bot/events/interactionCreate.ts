@@ -55,11 +55,12 @@ export function buildInteractionCreateHandler(services: AppServices) {
 
     if (action === "battle") {
       try {
-        const battle = await services.battle.startWildBattle({
+        const result = await services.battle.startWildBattle({
           encounterId,
-          discordUserId: interaction.user.id
+          discordUserId: interaction.user.id,
+          username: interaction.user.username
         });
-        await interaction.reply({ content: `Batalha iniciada: ${battle.id}`, ephemeral: true });
+        await interaction.reply({ content: result.message });
       } catch (error) {
         await interaction.reply({
           content: error instanceof Error ? error.message : "Não foi possível iniciar a batalha.",

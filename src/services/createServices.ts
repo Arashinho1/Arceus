@@ -1,6 +1,6 @@
 import { prisma } from "../database/prisma.js";
-import { LocalBattleEngine } from "../integrations/local/LocalBattleEngine.js";
 import { BattleService } from "./battle/BattleService.js";
+import { BattleTestService } from "./battle/BattleTestService.js";
 import { CaptureService } from "./capture/CaptureService.js";
 import { MapService } from "./maps/MapService.js";
 import { PokedexService } from "./pokedex/PokedexService.js";
@@ -12,7 +12,6 @@ import { UserService } from "./users/UserService.js";
 
 export function createServices() {
   const pokemonGenerator = new PokemonGeneratorService();
-  const localBattleEngine = new LocalBattleEngine();
   const spawnPool = new SpawnPoolService(prisma);
 
   return {
@@ -25,7 +24,8 @@ export function createServices() {
     spawn: new SpawnService(prisma, pokemonGenerator, spawnPool),
     travel: new TravelService(prisma),
     capture: new CaptureService(prisma),
-    battle: new BattleService(prisma, localBattleEngine)
+    battle: new BattleService(prisma),
+    battleTest: new BattleTestService(prisma, pokemonGenerator)
   };
 }
 

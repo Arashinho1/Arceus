@@ -2,6 +2,16 @@ import { BattleState, PokemonStatus, type PokemonSpecies, type PrismaClient } fr
 import { STAT_KEYS, type EvolutionRule, type LevelUpMove, type StatKey, type StatTable } from "../../domain/pokemon/types.js";
 import type { BattleRewardSummary, NarrativeBattleData } from "./BattleService.js";
 
+const MIN_XP_REWARD = 20;
+const XP_PER_DEFEATED_LEVEL = 28;
+const XP_RARITY_WEIGHT = 4;
+const MIN_COIN_REWARD = 8;
+const COINS_PER_DEFEATED_LEVEL = 5;
+const COIN_RARITY_DIVISOR = 24;
+const XP_CURVE_BASE = 80;
+const XP_CURVE_LINEAR = 45;
+const XP_CURVE_QUADRATIC = 12;
+
 export class BattleRewardService {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -139,16 +149,16 @@ function readStatTable(raw: unknown): StatTable {
 
 function calculateXpReward(defeatedLevel: number, defeatedSpecies: PokemonSpecies): number {
   const rarityBonus = Math.max(0, Math.floor((255 - defeatedSpecies.baseCatchRate) / 10));
-  return Math.max(25, defeatedLevel * 35 + rarityBonus);
+  return Math.max(MIN_XP_REWARD, defeatedLevel * XP_PER_DEFEATED_LEVEL + rarityBonus * XP_RARITY_WEIGHT);
 }
 
 function calculateCoinReward(defeatedLevel: number, defeatedSpecies: PokemonSpecies): number {
-  const rarityBonus = Math.max(0, Math.floor((255 - defeatedSpecies.baseCatchRate) / 20));
-  return Math.max(10, defeatedLevel * 8 + rarityBonus);
+  const rarityBonus = Math.max(0, Math.floor((255 - defeatedSpecies.baseCatchRate) / COIN_RARITY_DIVISOR));
+  return Math.max(MIN_COIN_REWARD, defeatedLevel * COINS_PER_DEFEATED_LEVEL + rarityBonus);
 }
 
 function xpForNextLevel(level: number): number {
-  return Math.max(100, level * 100);
+  return Math.max(100, Math.floor(XP_CURVE_BASE + level * XP_CURVE_LINEAR + level * level * XP_CURVE_QUADRATIC));
 }
 
 function applyXpGain(level: number, xp: number, gainedXp: number): { level: number; remainingXp: number } {

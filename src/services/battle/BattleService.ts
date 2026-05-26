@@ -16,9 +16,11 @@ import {
   findLearnedMove,
   getMoveDefinition,
   type BattleStatStage,
+  type HealMoveEffect,
   type MoveDefinition,
   type MoveEffect,
-  type StatusMoveEffect
+  type StatusMoveEffect,
+  type VolatileMoveEffect
 } from "../../domain/battle/moves.js";
 import { STAT_KEYS, type GeneratedWildPokemon, type StatKey, type StatTable } from "../../domain/pokemon/types.js";
 import { clamp, randomInt } from "../../utils/random.js";
@@ -89,6 +91,13 @@ export type ActivePokemonState = {
 
 export type StatStageState = Partial<Record<BattleStatStage, number>>;
 
+export type VolatileBattleState = {
+  confusionTurns?: number;
+  flinch?: boolean;
+  protected?: boolean;
+  seededBySide?: number;
+};
+
 export type NarrativeBattleData = {
   source: "narrative";
   mode: BattleMode;
@@ -96,6 +105,7 @@ export type NarrativeBattleData = {
   turnSide: number | null;
   activeBySide: Record<string, ActivePokemonState | null>;
   statStagesBySide: Record<string, StatStageState>;
+  volatileBySide: Record<string, VolatileBattleState>;
   log: string[];
   challengerDiscordId?: string;
   targetDiscordId?: string;
@@ -161,14 +171,24 @@ type PlayerPokemonWithSpecies = PlayerPokemon & {
 };
 
 const TYPE_CHART: Record<string, Record<string, number>> = {
-  FIRE: { GRASS: 2, WATER: 0.5, FIRE: 0.5, ROCK: 0.5 },
-  WATER: { FIRE: 2, ROCK: 2, GROUND: 2, GRASS: 0.5, WATER: 0.5 },
-  GRASS: { WATER: 2, ROCK: 2, GROUND: 2, FIRE: 0.5, GRASS: 0.5, POISON: 0.5, FLYING: 0.5 },
-  ELECTRIC: { WATER: 2, FLYING: 2, GRASS: 0.5, ELECTRIC: 0.5, GROUND: 0 },
-  FLYING: { GRASS: 2, ELECTRIC: 0.5, ROCK: 0.5 },
-  POISON: { GRASS: 2, POISON: 0.5, GROUND: 0.5, ROCK: 0.5 },
-  GROUND: { FIRE: 2, ELECTRIC: 2, POISON: 2, GRASS: 0.5, FLYING: 0 },
-  NORMAL: { ROCK: 0.5, GHOST: 0 }
+  NORMAL: { ROCK: 0.5, STEEL: 0.5, GHOST: 0 },
+  FIRE: { GRASS: 2, ICE: 2, BUG: 2, STEEL: 2, WATER: 0.5, FIRE: 0.5, ROCK: 0.5, DRAGON: 0.5 },
+  WATER: { FIRE: 2, ROCK: 2, GROUND: 2, GRASS: 0.5, WATER: 0.5, DRAGON: 0.5 },
+  GRASS: { WATER: 2, ROCK: 2, GROUND: 2, FIRE: 0.5, GRASS: 0.5, POISON: 0.5, FLYING: 0.5, BUG: 0.5, DRAGON: 0.5, STEEL: 0.5 },
+  ELECTRIC: { WATER: 2, FLYING: 2, GRASS: 0.5, ELECTRIC: 0.5, DRAGON: 0.5, GROUND: 0 },
+  FLYING: { GRASS: 2, FIGHTING: 2, BUG: 2, ELECTRIC: 0.5, ROCK: 0.5, STEEL: 0.5 },
+  POISON: { GRASS: 2, FAIRY: 2, POISON: 0.5, GROUND: 0.5, ROCK: 0.5, GHOST: 0.5, STEEL: 0 },
+  GROUND: { FIRE: 2, ELECTRIC: 2, POISON: 2, ROCK: 2, STEEL: 2, GRASS: 0.5, BUG: 0.5, FLYING: 0 },
+  ROCK: { FIRE: 2, ICE: 2, FLYING: 2, BUG: 2, FIGHTING: 0.5, GROUND: 0.5, STEEL: 0.5 },
+  FIGHTING: { NORMAL: 2, ICE: 2, ROCK: 2, DARK: 2, STEEL: 2, POISON: 0.5, FLYING: 0.5, PSYCHIC: 0.5, BUG: 0.5, FAIRY: 0.5, GHOST: 0 },
+  PSYCHIC: { FIGHTING: 2, POISON: 2, PSYCHIC: 0.5, STEEL: 0.5, DARK: 0 },
+  DARK: { PSYCHIC: 2, GHOST: 2, FIGHTING: 0.5, DARK: 0.5, FAIRY: 0.5 },
+  GHOST: { PSYCHIC: 2, GHOST: 2, DARK: 0.5, NORMAL: 0 },
+  ICE: { GRASS: 2, GROUND: 2, FLYING: 2, DRAGON: 2, FIRE: 0.5, WATER: 0.5, ICE: 0.5, STEEL: 0.5 },
+  DRAGON: { DRAGON: 2, STEEL: 0.5, FAIRY: 0 },
+  BUG: { GRASS: 2, PSYCHIC: 2, DARK: 2, FIRE: 0.5, FIGHTING: 0.5, POISON: 0.5, FLYING: 0.5, GHOST: 0.5, STEEL: 0.5, FAIRY: 0.5 },
+  STEEL: { ICE: 2, ROCK: 2, FAIRY: 2, FIRE: 0.5, WATER: 0.5, ELECTRIC: 0.5, STEEL: 0.5 },
+  FAIRY: { FIGHTING: 2, DRAGON: 2, DARK: 2, FIRE: 0.5, POISON: 0.5, STEEL: 0.5 }
 };
 
 const ABILITY_TYPE_BOOST: Record<string, string> = {
@@ -545,6 +565,7 @@ export class BattleService {
     const active = buildActiveFromPlayerPokemon(pokemon);
     context.data.activeBySide[sideKey(context.side)] = active;
     context.data.statStagesBySide[sideKey(context.side)] = {};
+    context.data.volatileBySide[sideKey(context.side)] = {};
     const lines = [`${active.speciesName} entrou em campo.`];
 
     this.tryStartPvpTurn(context.data, lines);
@@ -585,6 +606,7 @@ export class BattleService {
     const active = buildActiveFromPlayerPokemon(pokemon);
     context.data.activeBySide[sideKey(context.side)] = active;
     context.data.statStagesBySide[sideKey(context.side)] = {};
+    context.data.volatileBySide[sideKey(context.side)] = {};
 
     const lines = current
       ? [`${current.speciesName} voltou para a Poké Bola.`, `${active.speciesName} entrou em campo.`]
@@ -628,6 +650,17 @@ export class BattleService {
     }
 
     const lines: string[] = [];
+    if (input.narration) {
+      lines.push(input.narration);
+    }
+
+    if (context.data.mode !== "PVP") {
+      this.resolveNpcBattleRound(context.data, context.side, learnedMove, lines);
+      context.data.log = appendLog(context.data, lines);
+      lines.push(...(await this.persistBattle(context.battle.id, context.data)));
+
+      return this.withPrompt(context.battle, context.data, lines);
+    }
 
     if (this.canActThroughStatus(context.data, context.side, lines)) {
       this.resolveMove(context.data, context.side, targetSide, learnedMove, lines);
@@ -758,6 +791,61 @@ export class BattleService {
     return `${entry.item.name} usado em ${pokemon.species.name}. HP: ${pokemon.currentHp}/${pokemon.maxHp} -> ${nextHp}/${pokemon.maxHp}.`;
   }
 
+  private resolveNpcBattleRound(
+    data: NarrativeBattleData,
+    playerSide: number,
+    playerMoveName: string,
+    lines: string[]
+  ): void {
+    const npcSide = getOpponentSide(playerSide);
+    const player = data.activeBySide[sideKey(playerSide)];
+    const npc = data.activeBySide[sideKey(npcSide)];
+    if (!player || !npc) {
+      data.turnSide = playerSide;
+      return;
+    }
+
+    const npcMoveName = pickNpcMove(npc, player);
+    const order = getMoveOrder(data, playerSide, playerMoveName, npcSide, npcMoveName);
+    const first = order[0];
+    if (first) {
+      lines.push(`Ordem do turno: ${data.activeBySide[sideKey(first.side)]?.speciesName ?? "Lado " + first.side} age primeiro.`);
+    }
+
+    for (const action of order) {
+      if (data.winnerSide) {
+        break;
+      }
+
+      const attacker = data.activeBySide[sideKey(action.side)];
+      const target = data.activeBySide[sideKey(action.targetSide)];
+      if (!attacker || !target || attacker.currentHp <= 0 || target.currentHp <= 0) {
+        continue;
+      }
+
+      if (action.side === npcSide) {
+        lines.push(`Turno de ${attacker.speciesName} ${data.mode === "WILD" ? "selvagem" : "do NPC"}.`);
+      }
+
+      if (this.canActThroughStatus(data, action.side, lines)) {
+        this.resolveMove(data, action.side, action.targetSide, action.moveName, lines);
+      }
+
+      if (!data.winnerSide) {
+        this.applyEndTurnEffects(data, action.side, lines);
+      }
+    }
+
+    delete getVolatileState(data, playerSide).protected;
+    delete getVolatileState(data, npcSide).protected;
+    data.round += 1;
+    data.turnSide = data.winnerSide ? null : playerSide;
+
+    if (data.winnerSide) {
+      lines.push(formatWinnerLine(data));
+    }
+  }
+
   private async finishAction(
     battle: BattleWithParticipants,
     data: NarrativeBattleData,
@@ -820,23 +908,40 @@ export class BattleService {
     }
 
     const move = getMoveDefinition(moveName);
-    if (move.type === "ELECTRIC" && target.types.includes("GROUND") && move.effects?.some((effect) => "status" in effect && effect.status === PokemonStatus.PARALYSIS)) {
-      lines.push(`${attacker.speciesName} usou ${move.name}.`);
-      lines.push(`**IMUNE.** ${target.speciesName} não foi afetado por golpes elétricos.`);
-      return;
-    }
-
     const accuracyStage = getStage(data, attackerSide, "accuracy");
     const effectiveAccuracy = clamp(move.accuracy * accuracyMultiplier(accuracyStage), 1, 100);
     lines.push(`${attacker.speciesName} usou ${move.name}.`);
+
+    const targetVolatile = getVolatileState(data, targetSide);
+    if (targetVolatile.protected && attackerSide !== targetSide) {
+      delete targetVolatile.protected;
+      lines.push(`**PROTEÇÃO.** ${target.speciesName} bloqueou o golpe.`);
+      return;
+    }
+
+    if (move.type === "ELECTRIC" && target.types.includes("GROUND")) {
+      lines.push(`**IMUNE.** ${target.speciesName} não foi afetado por golpes elétricos.`);
+      return;
+    }
 
     if (randomInt(1, 100) > effectiveAccuracy) {
       lines.push(`**FALHOU.** O ataque errou. Precisão efetiva: ${Math.round(effectiveAccuracy)}%.`);
       return;
     }
 
+    if (move.forceSwitch) {
+      this.applyForcedSwitch(data, targetSide, lines);
+      return;
+    }
+
     if (move.category === "status") {
       this.applyMoveEffects(data, attackerSide, targetSide, move, lines);
+      return;
+    }
+
+    const effectiveness = calculateEffectiveness(move.type, target.types);
+    if (effectiveness === 0) {
+      lines.push("**IMUNE.** Não teve efeito.");
       return;
     }
 
@@ -846,34 +951,57 @@ export class BattleService {
     const attack = Math.max(1, attacker.stats[attackStat] * statMultiplier(getStage(data, attackerSide, attackStat)) * burnMultiplier);
     const defense = Math.max(1, target.stats[defenseStat] * statMultiplier(getStage(data, targetSide, defenseStat)));
     const stab = attacker.types.includes(move.type) ? 1.5 : 1;
-    const effectiveness = calculateEffectiveness(move.type, target.types);
     const abilityMultiplier = abilityDamageMultiplier(attacker, move, lines);
-    const critical = randomInt(1, 16) === 1;
-    const criticalMultiplier = critical ? 1.5 : 1;
-    const randomMultiplier = randomInt(85, 100) / 100;
-    const damage = Math.max(
-      1,
-      Math.floor(
-        (((((2 * attacker.level) / 5 + 2) * move.power * attack) / defense) / 50 + 2) *
-          stab *
-          effectiveness *
-          abilityMultiplier *
-          criticalMultiplier *
-          randomMultiplier
-      )
-    );
+    const hitCount = pickHitCount(move);
+    let hitsLanded = 0;
+    let totalDamage = 0;
 
-    target.currentHp = Math.max(0, target.currentHp - damage);
-    lines.push(`${target.speciesName} recebeu ${damage} de dano. HP: ${target.currentHp}/${target.maxHp}.`);
-    if (critical) {
-      lines.push("**CRÍTICO!** O dano foi amplificado.");
+    for (let hit = 0; hit < hitCount; hit += 1) {
+      const critical = randomInt(1, move.highCritical ? 8 : 16) === 1;
+      const criticalMultiplier = critical ? 1.5 : 1;
+      const randomMultiplier = randomInt(85, 100) / 100;
+      const damage = Math.max(
+        1,
+        Math.floor(
+          (((((2 * attacker.level) / 5 + 2) * move.power * attack) / defense) / 50 + 2) *
+            stab *
+            effectiveness *
+            abilityMultiplier *
+            criticalMultiplier *
+            randomMultiplier
+        )
+      );
+
+      target.currentHp = Math.max(0, target.currentHp - damage);
+      hitsLanded += 1;
+      totalDamage += damage;
+      lines.push(`${target.speciesName} recebeu ${damage} de dano. HP: ${target.currentHp}/${target.maxHp}.`);
+      if (critical) {
+        lines.push("**CRÍTICO!** O dano foi amplificado.");
+      }
+
+      if (target.currentHp <= 0) {
+        break;
+      }
     }
+
+    if (hitsLanded > 1) {
+      lines.push(`Acertou ${hitsLanded} vez(es).`);
+    }
+
     if (effectiveness > 1) {
       lines.push("**SUPER EFETIVO.**");
     } else if (effectiveness > 0 && effectiveness < 1) {
       lines.push("**RESISTIDO.** Não foi muito efetivo.");
-    } else if (effectiveness === 0) {
-      lines.push("**IMUNE.** Não teve efeito.");
+    }
+
+    this.applyDrainAndRecoil(data, attackerSide, targetSide, move, totalDamage, lines);
+    this.applyContactAbility(data, attackerSide, targetSide, move, totalDamage, lines);
+
+    if (attacker.currentHp <= 0 && target.currentHp > 0) {
+      lines.push(`${attacker.speciesName} não consegue mais lutar.`);
+      data.winnerSide = targetSide;
+      return;
     }
 
     if (target.currentHp <= 0) {
@@ -883,7 +1011,6 @@ export class BattleService {
     }
 
     this.applyMoveEffects(data, attackerSide, targetSide, move, lines);
-    this.applyContactAbility(data, attackerSide, targetSide, move, damage, lines);
   }
 
   private applyMoveEffects(
@@ -912,7 +1039,17 @@ export class BattleService {
         continue;
       }
 
-      this.applyPersistentStatusEffect(data, attackerSide, targetSide, effect, lines);
+      if ("status" in effect) {
+        this.applyPersistentStatusEffect(data, attackerSide, targetSide, effect, lines);
+        continue;
+      }
+
+      if ("volatile" in effect) {
+        this.applyVolatileEffect(data, attackerSide, targetSide, effect, lines);
+        continue;
+      }
+
+      this.applyHealEffect(data, attackerSide, effect, lines);
     }
   }
 
@@ -967,6 +1104,128 @@ export class BattleService {
     lines.push(`**STATUS: ${statusTitle(effect.status)}.** ${affected.speciesName} ficou com ${statusLabel(effect.status)}${durationText}.`);
   }
 
+  private applyVolatileEffect(
+    data: NarrativeBattleData,
+    attackerSide: number,
+    targetSide: number,
+    effect: VolatileMoveEffect,
+    lines: string[]
+  ): void {
+    const affectedSide = effect.target === "self" ? attackerSide : targetSide;
+    const affected = data.activeBySide[sideKey(affectedSide)];
+    if (!affected || affected.currentHp <= 0) {
+      return;
+    }
+
+    const volatile = getVolatileState(data, affectedSide);
+    if (effect.volatile === "flinch") {
+      volatile.flinch = true;
+      lines.push(`**RECUO.** ${affected.speciesName} pode perder a próxima ação.`);
+      return;
+    }
+
+    if (effect.volatile === "confusion") {
+      if ((volatile.confusionTurns ?? 0) > 0) {
+        lines.push(`**CONFUSÃO BLOQUEADA.** ${affected.speciesName} já está confuso.`);
+        return;
+      }
+
+      volatile.confusionTurns = randomInt(effect.minTurns ?? 1, effect.maxTurns ?? 4);
+      lines.push(`**CONFUSÃO.** ${affected.speciesName} ficou confuso por ${volatile.confusionTurns} turno(s).`);
+      return;
+    }
+
+    if (effect.volatile === "protect") {
+      volatile.protected = true;
+      lines.push(`**PROTEÇÃO.** ${affected.speciesName} se protegeu contra o próximo golpe.`);
+      return;
+    }
+
+    if (effect.volatile === "seeded") {
+      if (affected.types.includes("GRASS")) {
+        lines.push(`**IMUNE.** ${affected.speciesName} resistiu às sementes.`);
+        return;
+      }
+
+      if (volatile.seededBySide) {
+        lines.push(`**SEMENTES BLOQUEADAS.** ${affected.speciesName} já está sob Leech Seed.`);
+        return;
+      }
+
+      volatile.seededBySide = attackerSide;
+      lines.push(`**LEECH SEED.** ${affected.speciesName} foi marcado por sementes drenantes.`);
+    }
+  }
+
+  private applyHealEffect(
+    data: NarrativeBattleData,
+    attackerSide: number,
+    effect: HealMoveEffect,
+    lines: string[]
+  ): void {
+    const affected = data.activeBySide[sideKey(attackerSide)];
+    if (!affected || affected.currentHp <= 0) {
+      return;
+    }
+
+    if (affected.currentHp >= affected.maxHp) {
+      lines.push(`${affected.speciesName} já está com HP cheio.`);
+      return;
+    }
+
+    const healing = Math.max(1, Math.floor((affected.maxHp * effect.healPercent) / 100));
+    const previousHp = affected.currentHp;
+    affected.currentHp = Math.min(affected.maxHp, affected.currentHp + healing);
+    lines.push(`**CURA.** ${affected.speciesName} recuperou ${affected.currentHp - previousHp} HP. HP: ${affected.currentHp}/${affected.maxHp}.`);
+  }
+
+  private applyDrainAndRecoil(
+    data: NarrativeBattleData,
+    attackerSide: number,
+    targetSide: number,
+    move: MoveDefinition,
+    damage: number,
+    lines: string[]
+  ): void {
+    const attacker = data.activeBySide[sideKey(attackerSide)];
+    const target = data.activeBySide[sideKey(targetSide)];
+    if (!attacker || !target || damage <= 0) {
+      return;
+    }
+
+    if (move.drainPercent && attacker.currentHp > 0) {
+      const healing = Math.min(attacker.maxHp - attacker.currentHp, Math.max(1, Math.floor((damage * move.drainPercent) / 100)));
+      if (healing > 0) {
+        attacker.currentHp += healing;
+        lines.push(`**DRENAGEM.** ${attacker.speciesName} recuperou ${healing} HP. HP: ${attacker.currentHp}/${attacker.maxHp}.`);
+      }
+    }
+
+    if (move.recoilPercent) {
+      const recoil = Math.max(1, Math.floor((damage * move.recoilPercent) / 100));
+      attacker.currentHp = Math.max(0, attacker.currentHp - recoil);
+      lines.push(`**RECUO.** ${attacker.speciesName} sofreu ${recoil} de dano. HP: ${attacker.currentHp}/${attacker.maxHp}.`);
+    }
+  }
+
+  private applyForcedSwitch(data: NarrativeBattleData, targetSide: number, lines: string[]): void {
+    const key = sideKey(targetSide);
+    const target = data.activeBySide[key];
+    if (!target || target.currentHp <= 0) {
+      return;
+    }
+
+    if (data.mode !== "PVP" && targetSide !== 1) {
+      lines.push(`**TROCA FORÇADA FALHOU.** ${target.speciesName} não tinha para onde recuar.`);
+      return;
+    }
+
+    data.activeBySide[key] = null;
+    data.statStagesBySide[key] = {};
+    data.volatileBySide[key] = {};
+    lines.push(`**TROCA FORÇADA.** ${target.speciesName} saiu do campo. Use \`.soltar <slot|nome>\` para escolher o próximo Pokémon.`);
+  }
+
   private applyContactAbility(
     data: NarrativeBattleData,
     attackerSide: number,
@@ -990,6 +1249,17 @@ export class BattleService {
   private canActThroughStatus(data: NarrativeBattleData, side: number, lines: string[]): boolean {
     const active = data.activeBySide[sideKey(side)];
     if (!active || active.currentHp <= 0) {
+      return false;
+    }
+
+    const volatile = getVolatileState(data, side);
+    if (volatile.protected) {
+      delete volatile.protected;
+    }
+
+    if (volatile.flinch) {
+      delete volatile.flinch;
+      lines.push(`**RECUO.** ${active.speciesName} hesitou e perdeu a ação.`);
       return false;
     }
 
@@ -1017,6 +1287,26 @@ export class BattleService {
       return false;
     }
 
+    if ((volatile.confusionTurns ?? 0) > 0) {
+      volatile.confusionTurns = (volatile.confusionTurns ?? 1) - 1;
+      lines.push(`**CONFUSÃO.** ${active.speciesName} está confuso.`);
+      if (randomInt(1, 100) <= 33) {
+        const damage = Math.max(1, Math.floor(active.maxHp / 8));
+        active.currentHp = Math.max(0, active.currentHp - damage);
+        lines.push(`${active.speciesName} se machucou na confusão e sofreu ${damage} de dano. HP: ${active.currentHp}/${active.maxHp}.`);
+        if (active.currentHp <= 0) {
+          lines.push(`${active.speciesName} não consegue mais lutar.`);
+          data.winnerSide = getOpponentSide(side);
+        }
+        return false;
+      }
+
+      if (volatile.confusionTurns <= 0) {
+        delete volatile.confusionTurns;
+        lines.push(`**CONFUSÃO ENCERRADA.** ${active.speciesName} voltou ao normal.`);
+      }
+    }
+
     return true;
   }
 
@@ -1028,6 +1318,7 @@ export class BattleService {
 
     const damage = statusResidualDamage(active);
     if (damage <= 0) {
+      this.applyLeechSeed(data, side, lines);
       return;
     }
 
@@ -1036,6 +1327,40 @@ export class BattleService {
     if (active.currentHp <= 0) {
       lines.push(`${active.speciesName} não consegue mais lutar.`);
       data.winnerSide = getOpponentSide(side);
+      return;
+    }
+
+    this.applyLeechSeed(data, side, lines);
+  }
+
+  private applyLeechSeed(data: NarrativeBattleData, side: number, lines: string[]): void {
+    const active = data.activeBySide[sideKey(side)];
+    if (!active || active.currentHp <= 0 || data.winnerSide) {
+      return;
+    }
+
+    const seededBySide = getVolatileState(data, side).seededBySide;
+    if (!seededBySide) {
+      return;
+    }
+
+    const seeder = data.activeBySide[sideKey(seededBySide)];
+    const damage = Math.max(1, Math.floor(active.maxHp / 8));
+    active.currentHp = Math.max(0, active.currentHp - damage);
+
+    let line = `**LEECH SEED.** ${active.speciesName} perdeu ${damage} HP. HP: ${active.currentHp}/${active.maxHp}.`;
+    if (seeder && seeder.currentHp > 0) {
+      const healing = Math.min(seeder.maxHp - seeder.currentHp, damage);
+      if (healing > 0) {
+        seeder.currentHp += healing;
+        line += ` ${seeder.speciesName} recuperou ${healing} HP.`;
+      }
+    }
+
+    lines.push(line);
+    if (active.currentHp <= 0) {
+      lines.push(`${active.speciesName} não consegue mais lutar.`);
+      data.winnerSide = seededBySide;
     }
   }
 
@@ -1338,6 +1663,7 @@ function createBattleData(input: {
     turnSide: input.turnSide ?? null,
     activeBySide: input.activeBySide ?? { "1": null, "2": null },
     statStagesBySide: { "1": {}, "2": {} },
+    volatileBySide: { "1": {}, "2": {} },
     log: input.log ?? [],
     ...(input.challengerDiscordId ? { challengerDiscordId: input.challengerDiscordId } : {}),
     ...(input.targetDiscordId ? { targetDiscordId: input.targetDiscordId } : {}),
@@ -1359,6 +1685,9 @@ function readBattleData(raw: unknown): NarrativeBattleData | null {
   const data = raw as NarrativeBattleData;
   data.activeBySide ??= { "1": null, "2": null };
   data.statStagesBySide ??= { "1": {}, "2": {} };
+  data.volatileBySide ??= { "1": {}, "2": {} };
+  data.volatileBySide["1"] ??= {};
+  data.volatileBySide["2"] ??= {};
   data.log ??= [];
   data.turnSide ??= null;
   hydrateActivePokemon(data.activeBySide["1"]);
@@ -1513,6 +1842,13 @@ function setStage(data: NarrativeBattleData, side: number, stat: BattleStatStage
   data.statStagesBySide[key] = stages;
 }
 
+function getVolatileState(data: NarrativeBattleData, side: number): VolatileBattleState {
+  const key = sideKey(side);
+  const state = data.volatileBySide[key] ?? {};
+  data.volatileBySide[key] = state;
+  return state;
+}
+
 function statMultiplier(stage: number): number {
   return stage >= 0 ? (2 + stage) / 2 : 2 / (2 - stage);
 }
@@ -1536,13 +1872,54 @@ function pickFirstSide(first: ActivePokemonState, second: ActivePokemonState): n
   return firstSpeed > secondSpeed ? 1 : 2;
 }
 
+function getMoveOrder(
+  data: NarrativeBattleData,
+  firstSide: number,
+  firstMoveName: string,
+  secondSide: number,
+  secondMoveName: string
+): Array<{ side: number; targetSide: number; moveName: string }> {
+  const firstMove = getMoveDefinition(firstMoveName);
+  const secondMove = getMoveDefinition(secondMoveName);
+  const firstPriority = firstMove.priority ?? 0;
+  const secondPriority = secondMove.priority ?? 0;
+  const firstAction = { side: firstSide, targetSide: secondSide, moveName: firstMoveName };
+  const secondAction = { side: secondSide, targetSide: firstSide, moveName: secondMoveName };
+
+  if (firstPriority !== secondPriority) {
+    return firstPriority > secondPriority ? [firstAction, secondAction] : [secondAction, firstAction];
+  }
+
+  const firstActive = data.activeBySide[sideKey(firstSide)];
+  const secondActive = data.activeBySide[sideKey(secondSide)];
+  if (!firstActive || !secondActive) {
+    return [firstAction, secondAction];
+  }
+
+  const firstSpeed = effectiveSpeed(firstActive, getStage(data, firstSide, "speed"));
+  const secondSpeed = effectiveSpeed(secondActive, getStage(data, secondSide, "speed"));
+  if (firstSpeed === secondSpeed) {
+    return Math.random() < 0.5 ? [firstAction, secondAction] : [secondAction, firstAction];
+  }
+
+  return firstSpeed > secondSpeed ? [firstAction, secondAction] : [secondAction, firstAction];
+}
+
+function pickHitCount(move: MoveDefinition): number {
+  const minHits = move.minHits ?? 1;
+  const maxHits = move.maxHits ?? minHits;
+  return randomInt(minHits, Math.max(minHits, maxHits));
+}
+
 function pickNpcMove(attacker: ActivePokemonState, defender: ActivePokemonState): string {
   const moves = attacker.moves.length > 0 ? attacker.moves : ["Tackle"];
   return moves
     .map((moveName) => {
       const move = getMoveDefinition(moveName);
       const effectiveness = move.category !== "status" ? calculateEffectiveness(move.type, defender.types) : 1;
-      return { moveName, score: move.power * effectiveness + (move.effects?.length ? 5 : 0) };
+      const missingHpRatio = (attacker.maxHp - attacker.currentHp) / Math.max(1, attacker.maxHp);
+      const healScore = move.effects?.some((effect) => "healPercent" in effect) ? missingHpRatio * 45 : 0;
+      return { moveName, score: move.power * effectiveness + (move.priority ?? 0) * 8 + (move.effects?.length ? 8 : 0) + healScore };
     })
     .sort((a, b) => b.score - a.score)[0]?.moveName ?? moves[0] ?? "Tackle";
 }
@@ -1640,7 +2017,24 @@ function formatMoveEffect(effect: MoveEffect): string {
     return `${direction} de ${statLabel(effect.stat)}`;
   }
 
-  return statusTitle(effect.status);
+  if ("status" in effect) {
+    return statusTitle(effect.status);
+  }
+
+  if ("volatile" in effect) {
+    if (effect.volatile === "flinch") {
+      return "recuo";
+    }
+    if (effect.volatile === "confusion") {
+      return "confusão";
+    }
+    if (effect.volatile === "protect") {
+      return "proteção";
+    }
+    return "Leech Seed";
+  }
+
+  return "cura";
 }
 
 function statLabel(stat: BattleStatStage): string {

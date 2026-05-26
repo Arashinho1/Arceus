@@ -21,7 +21,11 @@ const species = [
       { level: 1, move: "Tackle" },
       { level: 3, move: "Growl" },
       { level: 7, move: "Vine Whip" },
-      { level: 9, move: "Leech Seed" }
+      { level: 9, move: "Leech Seed" },
+      { level: 13, move: "Razor Leaf" },
+      { level: 15, move: "Poison Powder" },
+      { level: 15, move: "Sleep Powder" },
+      { level: 21, move: "Mega Drain" }
     ],
     evolutions: [{ to: "ivysaur", method: "level", level: 16 }]
   },
@@ -44,8 +48,11 @@ const species = [
       { level: 1, move: "Growl" },
       { level: 7, move: "Vine Whip" },
       { level: 9, move: "Leech Seed" },
+      { level: 13, move: "Razor Leaf" },
       { level: 13, move: "Poison Powder" },
-      { level: 13, move: "Sleep Powder" }
+      { level: 13, move: "Sleep Powder" },
+      { level: 21, move: "Mega Drain" },
+      { level: 28, move: "Growth" }
     ],
     evolutions: []
   },
@@ -67,7 +74,11 @@ const species = [
       { level: 1, move: "Scratch" },
       { level: 1, move: "Growl" },
       { level: 7, move: "Ember" },
-      { level: 10, move: "Smokescreen" }
+      { level: 10, move: "Smokescreen" },
+      { level: 12, move: "Dragon Breath" },
+      { level: 17, move: "Fire Fang" },
+      { level: 24, move: "Flame Wheel" },
+      { level: 34, move: "Flamethrower" }
     ],
     evolutions: [{ to: "charmeleon", method: "level", level: 16 }]
   },
@@ -89,7 +100,11 @@ const species = [
       { level: 1, move: "Scratch" },
       { level: 1, move: "Growl" },
       { level: 7, move: "Ember" },
-      { level: 10, move: "Smokescreen" }
+      { level: 10, move: "Smokescreen" },
+      { level: 12, move: "Dragon Breath" },
+      { level: 17, move: "Fire Fang" },
+      { level: 24, move: "Flame Wheel" },
+      { level: 34, move: "Flamethrower" }
     ],
     evolutions: []
   },
@@ -110,8 +125,14 @@ const species = [
     levelUpMoves: [
       { level: 1, move: "Tackle" },
       { level: 1, move: "Tail Whip" },
+      { level: 4, move: "Bubble" },
       { level: 7, move: "Water Gun" },
-      { level: 10, move: "Withdraw" }
+      { level: 10, move: "Withdraw" },
+      { level: 13, move: "Bite" },
+      { level: 16, move: "Aqua Jet" },
+      { level: 20, move: "Bubble Beam" },
+      { level: 24, move: "Water Pulse" },
+      { level: 31, move: "Protect" }
     ],
     evolutions: [{ to: "wartortle", method: "level", level: 16 }]
   },
@@ -132,8 +153,14 @@ const species = [
     levelUpMoves: [
       { level: 1, move: "Tackle" },
       { level: 1, move: "Tail Whip" },
+      { level: 4, move: "Bubble" },
       { level: 7, move: "Water Gun" },
-      { level: 10, move: "Withdraw" }
+      { level: 10, move: "Withdraw" },
+      { level: 13, move: "Bite" },
+      { level: 16, move: "Aqua Jet" },
+      { level: 20, move: "Bubble Beam" },
+      { level: 24, move: "Water Pulse" },
+      { level: 31, move: "Protect" }
     ],
     evolutions: []
   },
@@ -154,7 +181,11 @@ const species = [
     levelUpMoves: [
       { level: 1, move: "Tackle" },
       { level: 5, move: "Sand Attack" },
-      { level: 9, move: "Gust" }
+      { level: 9, move: "Gust" },
+      { level: 13, move: "Quick Attack" },
+      { level: 17, move: "Wing Attack" },
+      { level: 25, move: "Air Slash" },
+      { level: 29, move: "Roost" }
     ],
     evolutions: [{ to: "pidgeotto", method: "level", level: 18 }]
   },
@@ -176,7 +207,10 @@ const species = [
       { level: 1, move: "Tackle" },
       { level: 5, move: "Sand Attack" },
       { level: 9, move: "Gust" },
-      { level: 15, move: "Quick Attack" }
+      { level: 15, move: "Quick Attack" },
+      { level: 17, move: "Wing Attack" },
+      { level: 25, move: "Air Slash" },
+      { level: 29, move: "Roost" }
     ],
     evolutions: []
   },
@@ -197,7 +231,11 @@ const species = [
     levelUpMoves: [
       { level: 1, move: "Tackle" },
       { level: 1, move: "Tail Whip" },
-      { level: 4, move: "Quick Attack" }
+      { level: 4, move: "Quick Attack" },
+      { level: 10, move: "Bite" },
+      { level: 16, move: "Hyper Fang" },
+      { level: 22, move: "Crunch" },
+      { level: 28, move: "Take Down" }
     ],
     evolutions: [{ to: "raticate", method: "level", level: 20 }]
   },
@@ -218,7 +256,11 @@ const species = [
     levelUpMoves: [
       { level: 1, move: "Tackle" },
       { level: 1, move: "Tail Whip" },
-      { level: 4, move: "Quick Attack" }
+      { level: 4, move: "Quick Attack" },
+      { level: 10, move: "Bite" },
+      { level: 16, move: "Hyper Fang" },
+      { level: 22, move: "Crunch" },
+      { level: 28, move: "Take Down" }
     ],
     evolutions: []
   },
@@ -240,7 +282,11 @@ const species = [
       { level: 1, move: "Thunder Shock" },
       { level: 1, move: "Tail Whip" },
       { level: 4, move: "Growl" },
-      { level: 8, move: "Quick Attack" }
+      { level: 8, move: "Quick Attack" },
+      { level: 12, move: "Thunder Wave" },
+      { level: 18, move: "Spark" },
+      { level: 24, move: "Agility" },
+      { level: 30, move: "Thunderbolt" }
     ],
     evolutions: [{ to: "raichu", method: "item", item: "thunder_stone" }]
   },
@@ -262,7 +308,10 @@ const species = [
       { level: 1, move: "Thunder Shock" },
       { level: 1, move: "Tail Whip" },
       { level: 1, move: "Quick Attack" },
-      { level: 1, move: "Thunder Wave" }
+      { level: 1, move: "Thunder Wave" },
+      { level: 18, move: "Spark" },
+      { level: 24, move: "Agility" },
+      { level: 30, move: "Thunderbolt" }
     ],
     evolutions: []
   }

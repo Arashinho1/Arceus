@@ -8,45 +8,30 @@ import {
   type PrismaClient
 } from "@prisma/client";
 import type { GeneratedWildPokemon, StatKey, StatTable } from "../../domain/pokemon/types.js";
+import { getMoveDefinition } from "../../domain/battle/moves.js";
 import { STAT_KEYS } from "../../domain/pokemon/types.js";
 import { clamp, randomInt } from "../../utils/random.js";
 import { PokemonGeneratorService } from "../pokemon/PokemonGeneratorService.js";
 
-const STATUS_MOVES = new Set([
-  "Growl",
-  "Tail Whip",
-  "Withdraw",
-  "Sand Attack",
-  "Smokescreen",
-  "Leech Seed"
-]);
-
-const MOVE_POWER: Record<string, number> = {
-  Tackle: 40,
-  Scratch: 40,
-  "Vine Whip": 45,
-  Ember: 40,
-  "Water Gun": 40,
-  Gust: 40,
-  "Quick Attack": 40,
-  "Thunder Shock": 40
-};
-
 const TYPE_CHART: Record<string, Record<string, number>> = {
-  FIRE: { GRASS: 2, WATER: 0.5, FIRE: 0.5 },
-  WATER: { FIRE: 2, GRASS: 0.5, WATER: 0.5 },
-  GRASS: { WATER: 2, FIRE: 0.5, GRASS: 0.5, POISON: 0.5, FLYING: 0.5 },
-  ELECTRIC: { WATER: 2, FLYING: 2, GRASS: 0.5, ELECTRIC: 0.5 },
-  FLYING: { GRASS: 2, ELECTRIC: 0.5 },
-  POISON: { GRASS: 2, POISON: 0.5 }
-};
-
-const MOVE_TYPES: Record<string, string> = {
-  "Vine Whip": "GRASS",
-  Ember: "FIRE",
-  "Water Gun": "WATER",
-  Gust: "FLYING",
-  "Thunder Shock": "ELECTRIC"
+  NORMAL: { ROCK: 0.5, STEEL: 0.5, GHOST: 0 },
+  FIRE: { GRASS: 2, ICE: 2, BUG: 2, STEEL: 2, WATER: 0.5, FIRE: 0.5, ROCK: 0.5, DRAGON: 0.5 },
+  WATER: { FIRE: 2, ROCK: 2, GROUND: 2, GRASS: 0.5, WATER: 0.5, DRAGON: 0.5 },
+  GRASS: { WATER: 2, ROCK: 2, GROUND: 2, FIRE: 0.5, GRASS: 0.5, POISON: 0.5, FLYING: 0.5, BUG: 0.5, DRAGON: 0.5, STEEL: 0.5 },
+  ELECTRIC: { WATER: 2, FLYING: 2, GRASS: 0.5, ELECTRIC: 0.5, DRAGON: 0.5, GROUND: 0 },
+  FLYING: { GRASS: 2, FIGHTING: 2, BUG: 2, ELECTRIC: 0.5, ROCK: 0.5, STEEL: 0.5 },
+  POISON: { GRASS: 2, FAIRY: 2, POISON: 0.5, GROUND: 0.5, ROCK: 0.5, GHOST: 0.5, STEEL: 0 },
+  GROUND: { FIRE: 2, ELECTRIC: 2, POISON: 2, ROCK: 2, STEEL: 2, GRASS: 0.5, BUG: 0.5, FLYING: 0 },
+  ROCK: { FIRE: 2, ICE: 2, FLYING: 2, BUG: 2, FIGHTING: 0.5, GROUND: 0.5, STEEL: 0.5 },
+  FIGHTING: { NORMAL: 2, ICE: 2, ROCK: 2, DARK: 2, STEEL: 2, POISON: 0.5, FLYING: 0.5, PSYCHIC: 0.5, BUG: 0.5, FAIRY: 0.5, GHOST: 0 },
+  PSYCHIC: { FIGHTING: 2, POISON: 2, PSYCHIC: 0.5, STEEL: 0.5, DARK: 0 },
+  DARK: { PSYCHIC: 2, GHOST: 2, FIGHTING: 0.5, DARK: 0.5, FAIRY: 0.5 },
+  GHOST: { PSYCHIC: 2, GHOST: 2, DARK: 0.5, NORMAL: 0 },
+  ICE: { GRASS: 2, GROUND: 2, FLYING: 2, DRAGON: 2, FIRE: 0.5, WATER: 0.5, ICE: 0.5, STEEL: 0.5 },
+  DRAGON: { DRAGON: 2, STEEL: 0.5, FAIRY: 0 },
+  BUG: { GRASS: 2, PSYCHIC: 2, DARK: 2, FIRE: 0.5, FIGHTING: 0.5, POISON: 0.5, FLYING: 0.5, GHOST: 0.5, STEEL: 0.5, FAIRY: 0.5 },
+  STEEL: { ICE: 2, ROCK: 2, FAIRY: 2, FIRE: 0.5, WATER: 0.5, ELECTRIC: 0.5, STEEL: 0.5 },
+  FAIRY: { FIGHTING: 2, DRAGON: 2, DARK: 2, FIRE: 0.5, POISON: 0.5, STEEL: 0.5 }
 };
 
 export type BattleTestInput = {
@@ -230,14 +215,17 @@ export class BattleTestService {
     };
 
     for (let round = 1; round <= 20; round += 1) {
-      const order = this.getTurnOrder(first, second);
-      for (const attacker of order) {
+      const firstMove = pickDamagingMove(first.generated.moves);
+      const secondMove = pickDamagingMove(second.generated.moves);
+      const order = this.getTurnOrder(first, firstMove, second, secondMove);
+      for (const action of order) {
+        const attacker = action.combatant;
         const defender = attacker.side === first.side ? second : first;
         if ((remainingHpBySide[attacker.side] ?? 0) <= 0 || (remainingHpBySide[defender.side] ?? 0) <= 0) {
           continue;
         }
 
-        const attack = this.resolveAttack(attacker, defender, remainingHpBySide[defender.side] ?? defender.hp);
+        const attack = this.resolveAttack(attacker, defender, remainingHpBySide[defender.side] ?? defender.hp, action.moveName);
         remainingHpBySide[defender.side] = attack.defenderRemainingHp;
         turns.push({ turn: round, ...attack });
 
@@ -261,41 +249,60 @@ export class BattleTestService {
     };
   }
 
-  private getTurnOrder(first: Combatant, second: Combatant): [Combatant, Combatant] {
-    if (first.stats.speed === second.stats.speed) {
-      return Math.random() < 0.5 ? [first, second] : [second, first];
+  private getTurnOrder(
+    first: Combatant,
+    firstMoveName: string,
+    second: Combatant,
+    secondMoveName: string
+  ): Array<{ combatant: Combatant; moveName: string }> {
+    const firstMove = getMoveDefinition(firstMoveName);
+    const secondMove = getMoveDefinition(secondMoveName);
+    const firstAction = { combatant: first, moveName: firstMoveName };
+    const secondAction = { combatant: second, moveName: secondMoveName };
+
+    if ((firstMove.priority ?? 0) !== (secondMove.priority ?? 0)) {
+      return (firstMove.priority ?? 0) > (secondMove.priority ?? 0) ? [firstAction, secondAction] : [secondAction, firstAction];
     }
 
-    return first.stats.speed > second.stats.speed ? [first, second] : [second, first];
+    if (first.stats.speed === second.stats.speed) {
+      return Math.random() < 0.5 ? [firstAction, secondAction] : [secondAction, firstAction];
+    }
+
+    return first.stats.speed > second.stats.speed ? [firstAction, secondAction] : [secondAction, firstAction];
   }
 
   private resolveAttack(
     attacker: Combatant,
     defender: Combatant,
-    defenderHp: number
+    defenderHp: number,
+    moveName: string
   ): Omit<BattleTestTurn, "turn"> {
-    const move = pickDamagingMove(attacker.generated.moves);
-    const movePower = MOVE_POWER[move] ?? 40;
-    const attack = Math.max(1, attacker.stats.attack);
-    const defense = Math.max(1, defender.stats.defense);
-    const effectiveness = calculateEffectiveness(move, defender.species.types);
-    const critical = Math.random() < 1 / 16;
+    const move = getMoveDefinition(moveName);
+    const attackStat = move.category === "special" ? "specialAttack" : "attack";
+    const defenseStat = move.category === "special" ? "specialDefense" : "defense";
+    const attack = Math.max(1, attacker.stats[attackStat]);
+    const defense = Math.max(1, defender.stats[defenseStat]);
+    const effectiveness = calculateEffectiveness(move.type, defender.species.types);
+    const critical = Math.random() < (move.highCritical ? 1 / 8 : 1 / 16);
     const criticalMultiplier = critical ? 1.5 : 1;
     const randomMultiplier = randomInt(85, 100) / 100;
-    const damage = Math.max(
-      1,
-      Math.floor(
-        (((((2 * attacker.generated.level) / 5 + 2) * movePower * attack) / defense) / 50 + 2) *
-          effectiveness *
-          criticalMultiplier *
-          randomMultiplier
-      )
-    );
+    const damage =
+      effectiveness === 0
+        ? 0
+        : Math.max(
+            1,
+            Math.floor(
+              (((((2 * attacker.generated.level) / 5 + 2) * move.power * attack) / defense) / 50 + 2) *
+                effectiveness *
+                criticalMultiplier *
+                randomMultiplier
+            )
+          );
 
     return {
       attacker: attacker.generated.speciesName,
       defender: defender.generated.speciesName,
-      move,
+      move: move.name,
       damage,
       defenderRemainingHp: Math.max(0, defenderHp - damage),
       defenderMaxHp: defender.generated.maxHp,
@@ -383,13 +390,15 @@ function readStatTable(raw: unknown): StatTable {
 }
 
 function pickDamagingMove(moves: string[]): string {
-  const damagingMoves = moves.filter((move) => !STATUS_MOVES.has(move));
+  const damagingMoves = moves.filter((move) => {
+    const definition = getMoveDefinition(move);
+    return definition.category !== "status" && definition.power > 0;
+  });
   const candidates = damagingMoves.length > 0 ? damagingMoves : ["Tackle"];
   return candidates[randomInt(0, candidates.length - 1)] ?? "Tackle";
 }
 
-function calculateEffectiveness(move: string, defenderTypes: string[]): number {
-  const moveType = MOVE_TYPES[move] ?? "NORMAL";
+function calculateEffectiveness(moveType: string, defenderTypes: string[]): number {
   const matchups = TYPE_CHART[moveType] ?? {};
 
   return defenderTypes.reduce((multiplier, defenderType) => multiplier * (matchups[defenderType] ?? 1), 1);

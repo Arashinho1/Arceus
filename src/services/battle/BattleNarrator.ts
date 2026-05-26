@@ -15,6 +15,10 @@ export function formatTurnPrompt(battle: BattleWithParticipants, data: Narrative
       : "Aguardando Pokémon em campo. Use `.soltar <slot|nome>`.";
   }
 
+  if (!data.activeBySide[String(data.turnSide)]) {
+    return "Aguardando Pokémon em campo. Use `.soltar <slot|nome>`.";
+  }
+
   if (data.mode === "WILD" || data.mode === "NPC") {
     return PLAYER_ACTION_PROMPT;
   }

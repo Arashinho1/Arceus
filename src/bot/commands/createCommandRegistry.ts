@@ -10,7 +10,7 @@ import {
   buildTrainerProfileFromMessage
 } from "../../ui/menu/trainerMenu.js";
 import { buildBattleTestEmbed } from "../../ui/embeds/battleTestEmbed.js";
-import { buildBattlePayload } from "../../ui/embeds/battleEmbed.js";
+import { replyOrUpdateBattleMessage } from "../../ui/embeds/battleMessage.js";
 
 export function createCommandRegistry(services: AppServices): Map<string, PrefixCommand> {
   const commands: PrefixCommand[] = [
@@ -75,7 +75,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
             return;
           }
 
-          await context.message.reply(await buildBattlePayload(view));
+          await replyOrUpdateBattleMessage({ message: context.message, view });
           return;
         }
 
@@ -89,7 +89,7 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
             username: context.message.author.username
           });
           if (view) {
-            await context.message.reply(await buildBattlePayload(view, log));
+            await replyOrUpdateBattleMessage({ message: context.message, view, content: log });
             return;
           }
 
@@ -496,7 +496,12 @@ async function startNarrativeBattleTest(
       ...(typeof parsedLevel === "number" ? { level: parsedLevel } : {})
     });
     const view = await context.services.battle.getBattleViewById(result.battle.id);
-    await context.message.reply(view ? await buildBattlePayload(view, result.message) : result.message);
+    if (view) {
+      await replyOrUpdateBattleMessage({ message: context.message, view, content: result.message });
+      return;
+    }
+
+    await context.message.reply(result.message);
   } catch (error) {
     await context.message.reply(error instanceof Error ? error.message : "Não foi possível iniciar a batalha teste.");
   }
@@ -520,7 +525,7 @@ async function replyBattleResult(
     return;
   }
 
-  await input.message.reply(await buildBattlePayload(view, content));
+  await replyOrUpdateBattleMessage({ message: input.message, view, content });
 }
 
 async function createMap(context: Parameters<PrefixCommand["execute"]>[0]): Promise<void> {

@@ -73,10 +73,10 @@ function buildBattleSvg(
   <rect width="${CARD_WIDTH}" height="${CARD_HEIGHT}" rx="10" fill="#20242d"/>
   <rect x="22" y="22" width="856" height="476" rx="8" fill="url(#sky)"/>
   ${buildFieldBands()}
-  ${buildPlatform(610, 258, 270, 76, "#6dd556")}
-  ${buildPlatform(230, 402, 310, 82, "#5bcf62")}
-  ${buildPokemonSprite(opponent, opponentSprite, 610, 262, 138)}
-  ${buildPokemonSprite(player, playerSprite, 230, 408, 190)}
+  ${buildPlatform(650, 286, 286, 78, "#6dd556")}
+  ${buildPlatform(258, 430, 340, 86, "#5bcf62")}
+  ${buildPokemonSprite(opponent, opponentSprite, 650, 288, 164)}
+  ${buildPokemonSprite(player, playerSprite, 258, 434, 214)}
   ${buildPokemonPanel(opponent, 52, 46, "Oponente", view.turnSide === 2)}
   ${buildPokemonPanel(player, 522, 352, "Jogador", view.turnSide === 1)}
   ${buildBattleBadge(view)}
@@ -157,15 +157,30 @@ function buildPokemonPanel(pokemon: BattlePokemonView | null, x: number, y: numb
 }
 
 function buildBattleBadge(view: BattleView): string {
-  const text = view.state === "FINISHED"
-    ? "Finalizada"
-    : view.state === "CANCELLED"
-      ? "Cancelada"
-      : view.turnSide
-        ? `Turno lado ${view.turnSide}`
-        : "Preparando";
-  return `<rect x="36" y="456" width="220" height="30" rx="15" fill="#111827" opacity="0.82"/>
-  <text x="146" y="477" text-anchor="middle" font-family="Arial" font-size="17" font-weight="900" fill="#f8fafc">${escapeXml(text)}</text>`;
+  const text = clipBadgeText(formatBattleBadgeText(view));
+  return `<rect x="36" y="456" width="286" height="30" rx="15" fill="#111827" opacity="0.82"/>
+  <text x="179" y="477" text-anchor="middle" font-family="Arial" font-size="16" font-weight="900" fill="#f8fafc">${escapeXml(text)}</text>`;
+}
+
+function formatBattleBadgeText(view: BattleView): string {
+  if (view.state === "FINISHED") {
+    return "Batalha finalizada";
+  }
+
+  if (view.state === "CANCELLED") {
+    return "Batalha cancelada";
+  }
+
+  if (!view.turnSide) {
+    return "Preparando campo";
+  }
+
+  const active = view.activeBySide[String(view.turnSide)];
+  return active ? `Vez de ${active.speciesName}` : `Turno do lado ${view.turnSide}`;
+}
+
+function clipBadgeText(value: string): string {
+  return value.length <= 28 ? value : `${value.slice(0, 25)}...`;
 }
 
 function formatBattleTitle(view: BattleView): string {

@@ -2,7 +2,7 @@ import { BattleState } from "@prisma/client";
 import type { Message } from "discord.js";
 import type { PrefixCommand } from "../commands/types.js";
 import type { AppServices } from "../../services/createServices.js";
-import { buildBattlePayload } from "../../ui/embeds/battleEmbed.js";
+import { replyOrUpdateBattleMessage } from "../../ui/embeds/battleMessage.js";
 import { buildEncounterActionRow, buildSpawnEmbed } from "../../ui/embeds/spawnEmbed.js";
 
 export function buildMessageCreateHandler(input: {
@@ -106,7 +106,12 @@ async function handleNarrativeBattleAction(message: Message, services: AppServic
     username: message.author.username
   });
 
-  await message.reply(latestView ? await buildBattlePayload(latestView, content) : content);
+  if (latestView) {
+    await replyOrUpdateBattleMessage({ message, view: latestView, content });
+    return true;
+  }
+
+  await message.reply(content);
   return true;
 }
 

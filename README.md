@@ -17,11 +17,15 @@ O MVP usa prefix commands com `.`. A arquitetura separa o handler do Discord dos
 
 Para testar o fluxo de batalha, use `.battletest`, `.battletest 25` ou `.battletest 5 20`. O comando sorteia dois Pokemon, simula um combate local e mostra o resumo mecânico do resultado.
 
+Para testar a batalha narrativa jogável sem mexer na equipe real, use `.batalhar teste` ou `.batalhar teste 25`. O bot cria um NPC e um Pokemon temporários no mesmo nível, sem XP, moedas ou drops, e limpa o temporário quando a batalha termina.
+
 O combate principal é narrativo por turnos. Use `.batalha @jogador`, `.aceitar`, `.soltar <slot|nome>`, `.atacar <ataque> | <narração>`, `.trocar <slot|nome>`, `.passar` e `.fugir` para testar o MVP.
 
 O motor já calcula categoria física/especial/status, precisão, dano, crítico, efetividade, burn, paralysis, sleep, poison e habilidades iniciais como Blaze, Torrent, Overgrow, Static, Keen Eye e Run Away.
 
-Ao vencer batalhas selvagens ou NPCs, o bot concede XP, moedas, EVs, level up, golpes aprendidos e evolução por nível quando a espécie evoluída estiver cadastrada.
+Ao vencer batalhas selvagens ou NPCs, o bot concede XP e moedas. Level up, golpes aprendidos e evolução por nível acontecem como consequência do XP quando a espécie evoluída estiver cadastrada.
+
+Para manutenção de batalha, use `.batalha status`, `.batalha log`, `.batalha cancelar` e, como admin, `.batalha resetar @jogador`. As respostas de batalha usam um card com sprites e barras de HP.
 
 ## Rodando localmente
 

@@ -1,6 +1,7 @@
 import { EncounterState, type PrismaClient } from "@prisma/client";
 import type { Interaction } from "discord.js";
 import type { AppServices } from "../../services/createServices.js";
+import { buildBattlePayload } from "../../ui/embeds/battleEmbed.js";
 import { buildEncounterDetailsContent } from "../../ui/embeds/spawnEmbed.js";
 import { handleTrainerMenuInteraction, isTrainerMenuInteraction } from "../../ui/menu/trainerMenu.js";
 
@@ -60,7 +61,8 @@ export function buildInteractionCreateHandler(services: AppServices) {
           discordUserId: interaction.user.id,
           username: interaction.user.username
         });
-        await interaction.reply({ content: result.message });
+        const view = await services.battle.getBattleViewById(result.battle.id);
+        await interaction.reply(view ? await buildBattlePayload(view, result.message) : { content: result.message });
       } catch (error) {
         await interaction.reply({
           content: error instanceof Error ? error.message : "Não foi possível iniciar a batalha.",

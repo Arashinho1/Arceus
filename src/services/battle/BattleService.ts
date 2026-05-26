@@ -20,13 +20,20 @@ import {
   type MoveEffect,
   type StatusMoveEffect
 } from "../../domain/battle/moves.js";
-import { STAT_KEYS, type EvolutionRule, type LevelUpMove, type StatKey, type StatTable } from "../../domain/pokemon/types.js";
+import { STAT_KEYS, type GeneratedWildPokemon, type StatKey, type StatTable } from "../../domain/pokemon/types.js";
 import { clamp, randomInt } from "../../utils/random.js";
+import { PokemonGeneratorService } from "../pokemon/PokemonGeneratorService.js";
+import { appendLog, formatHpLine, formatTurnPrompt, formatWinnerLine } from "./BattleNarrator.js";
+import { BattleRewardService } from "./BattleRewardService.js";
 
 export type StartWildBattleInput = {
   encounterId: string;
   discordUserId: string;
   username: string;
+};
+
+export type StartTestBattleInput = BattleCommandInput & {
+  level?: number;
 };
 
 export type BattleStartResult = {
@@ -60,9 +67,9 @@ export type UseItemInput = BattleCommandInput & {
   pokemonQuery: string;
 };
 
-type BattleMode = "PVP" | "WILD" | "NPC";
+export type BattleMode = "PVP" | "WILD" | "NPC";
 
-type ActivePokemonState = {
+export type ActivePokemonState = {
   pokemonId?: string;
   encounterId?: string;
   speciesId: string;
@@ -80,9 +87,9 @@ type ActivePokemonState = {
   spriteUrl: string | null;
 };
 
-type StatStageState = Partial<Record<BattleStatStage, number>>;
+export type StatStageState = Partial<Record<BattleStatStage, number>>;
 
-type NarrativeBattleData = {
+export type NarrativeBattleData = {
   source: "narrative";
   mode: BattleMode;
   round: number;
@@ -93,12 +100,16 @@ type NarrativeBattleData = {
   challengerDiscordId?: string;
   targetDiscordId?: string;
   encounterId?: string;
+  testBattle?: {
+    temporaryPokemonId?: string;
+    cleanupApplied?: boolean;
+  };
   winnerSide?: number | null;
   rewardsApplied?: boolean;
   rewardSummary?: BattleRewardSummary | null;
 };
 
-type BattleRewardSummary = {
+export type BattleRewardSummary = {
   pokemonId: string;
   pokemonName: string;
   defeatedSpeciesName: string;
@@ -106,7 +117,6 @@ type BattleRewardSummary = {
   coinsGained: number;
   levelBefore: number;
   levelAfter: number;
-  evsGained: Partial<StatTable>;
   movesLearned: string[];
   evolution?: {
     from: string;
@@ -115,7 +125,28 @@ type BattleRewardSummary = {
   };
 };
 
-type BattleWithParticipants = Prisma.BattleGetPayload<{
+export type BattlePokemonView = ActivePokemonState;
+
+export type BattleParticipantView = {
+  side: number;
+  discordId: string | null;
+  username: string | null;
+};
+
+export type BattleView = {
+  battleId: string;
+  state: BattleState;
+  mode: BattleMode;
+  round: number;
+  turnSide: number | null;
+  winnerSide?: number | null;
+  activeBySide: Record<string, BattlePokemonView | null>;
+  participants: BattleParticipantView[];
+  log: string[];
+  rewardSummary?: BattleRewardSummary | null;
+};
+
+export type BattleWithParticipants = Prisma.BattleGetPayload<{
   include: {
     participants: {
       include: {
@@ -146,10 +177,15 @@ const ABILITY_TYPE_BOOST: Record<string, string> = {
   overgrow: "GRASS"
 };
 
-const MAX_LOG_LINES = 30;
-
 export class BattleService {
-  constructor(private readonly prisma: PrismaClient) {}
+  private readonly rewards: BattleRewardService;
+
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly pokemonGenerator: PokemonGeneratorService
+  ) {
+    this.rewards = new BattleRewardService(prisma);
+  }
 
   async challengePlayer(input: ChallengePlayerInput): Promise<string> {
     if (input.challengerDiscordId === input.targetDiscordId) {
@@ -247,6 +283,62 @@ export class BattleService {
     return "Desafio recusado.";
   }
 
+  async getActiveBattleView(input: BattleCommandInput): Promise<BattleView | null> {
+    const user = await this.ensureUser(input.discordId, input.username);
+    const battle = await this.findBattleForUserId(user.id, [BattleState.ACTIVE, BattleState.PENDING]);
+    return battle ? buildBattleView(battle) : null;
+  }
+
+  async getLatestBattleView(input: BattleCommandInput): Promise<BattleView | null> {
+    const user = await this.ensureUser(input.discordId, input.username);
+    const battle = await this.findBattleForUserId(user.id, [BattleState.ACTIVE, BattleState.PENDING, BattleState.FINISHED]);
+    return battle ? buildBattleView(battle) : null;
+  }
+
+  async getBattleViewById(battleId: string): Promise<BattleView | null> {
+    const battle = await this.prisma.battle.findUnique({
+      where: { id: battleId },
+      include: { participants: { include: { user: true } } }
+    });
+    return battle ? buildBattleView(battle) : null;
+  }
+
+  async getBattleLog(input: BattleCommandInput): Promise<string> {
+    const view = await this.getActiveBattleView(input);
+    if (!view) {
+      return "Você não tem batalha ativa ou desafio pendente.";
+    }
+
+    const lines = view.log.slice(-15);
+    return lines.length > 0 ? lines.join("\n") : "Essa batalha ainda não tem log.";
+  }
+
+  async cancelBattle(input: BattleCommandInput): Promise<string> {
+    const user = await this.ensureUser(input.discordId, input.username);
+    const battle = await this.findBattleForUserId(user.id, [BattleState.ACTIVE, BattleState.PENDING]);
+    if (!battle) {
+      return "Você não tem batalha ativa ou desafio pendente para cancelar.";
+    }
+
+    await this.cancelBattleRecord(battle, `${input.username} cancelou a batalha.`);
+    return "Batalha cancelada.";
+  }
+
+  async resetBattleForUser(input: { targetDiscordId: string; moderatorUsername: string }): Promise<string> {
+    const target = await this.prisma.user.findUnique({ where: { discordId: input.targetDiscordId } });
+    if (!target) {
+      return "Esse jogador ainda não tem perfil no bot.";
+    }
+
+    const battle = await this.findBattleForUserId(target.id, [BattleState.ACTIVE, BattleState.PENDING]);
+    if (!battle) {
+      return "Esse jogador não tem batalha ativa ou desafio pendente.";
+    }
+
+    await this.cancelBattleRecord(battle, `${input.moderatorUsername} resetou a batalha de ${target.username}.`);
+    return `Batalha de ${target.username} resetada.`;
+  }
+
   async startWildBattle(input: StartWildBattleInput): Promise<BattleStartResult> {
     const user = await this.ensureUser(input.discordUserId, input.username);
     if (await this.findActiveBattleForUserId(user.id)) {
@@ -333,10 +425,105 @@ export class BattleService {
     };
   }
 
+  async startTestBattle(input: StartTestBattleInput): Promise<BattleStartResult> {
+    const user = await this.ensureUser(input.discordId, input.username);
+    if (await this.findActiveBattleForUserId(user.id)) {
+      throw new Error("Você já está em uma batalha ativa.");
+    }
+
+    const level = clamp(Math.floor(input.level ?? randomInt(5, 25)), 1, 100);
+    const selectedSpecies = await this.pickRandomSpeciesPair();
+    const playerGenerated = this.pokemonGenerator.generateWildPokemon(selectedSpecies.player, {
+      minLevel: level,
+      maxLevel: level,
+      shinyChance: 0
+    });
+    const opponentGenerated = this.pokemonGenerator.generateWildPokemon(selectedSpecies.opponent, {
+      minLevel: level,
+      maxLevel: level,
+      shinyChance: 0
+    });
+
+    const temporaryPokemon = await this.prisma.playerPokemon.create({
+      data: {
+        userId: user.id,
+        speciesId: selectedSpecies.player.id,
+        level: playerGenerated.level,
+        xp: 0,
+        gender: playerGenerated.gender,
+        shiny: playerGenerated.shiny,
+        nature: playerGenerated.nature,
+        ability: playerGenerated.ability,
+        ivs: toJson(playerGenerated.ivs),
+        evs: toJson(playerGenerated.evs),
+        moves: playerGenerated.moves,
+        currentHp: playerGenerated.currentHp,
+        maxHp: playerGenerated.maxHp,
+        status: playerGenerated.status,
+        isInTeam: false,
+        isReleased: true,
+        originalTrainerId: user.id,
+        originLabel: "Batalha teste temporária"
+      }
+    });
+
+    const playerActive = buildActiveFromGeneratedPokemon(selectedSpecies.player, playerGenerated, temporaryPokemon.id);
+    const npcActive = buildActiveFromGeneratedPokemon(selectedSpecies.opponent, opponentGenerated);
+    const data = createBattleData({
+      mode: "NPC",
+      activeBySide: { "1": playerActive, "2": npcActive },
+      turnSide: 1,
+      testBattle: { temporaryPokemonId: temporaryPokemon.id },
+      log: [
+        `${input.username} iniciou uma batalha teste contra um NPC temporário.`,
+        `${playerActive.speciesName} temporário encarou ${npcActive.speciesName} temporário.`
+      ]
+    });
+
+    const battle = await this.prisma.battle.create({
+      data: {
+        engine: BattleEngine.LOCAL,
+        state: BattleState.ACTIVE,
+        data: toJson(data),
+        participants: {
+          create: [
+            {
+              type: BattleParticipantType.PLAYER,
+              side: 1,
+              userId: user.id,
+              pokemonId: temporaryPokemon.id,
+              activePokemonSnapshot: toJson(playerActive)
+            },
+            {
+              type: BattleParticipantType.NPC,
+              side: 2,
+              activePokemonSnapshot: toJson(npcActive)
+            }
+          ]
+        }
+      }
+    });
+
+    return {
+      battle,
+      message: [
+        `Batalha teste iniciada: **${playerActive.speciesName}** vs **${npcActive.speciesName}**.`,
+        `Ambos estão no Lv.${level}. Essa batalha não concede XP, moedas ou drops.`,
+        formatHpLine(playerActive),
+        formatHpLine(npcActive),
+        "Sua vez. Use `.atacar <ataque> | <narração opcional>`, `.passar` ou `.fugir`."
+      ].join("\n")
+    };
+  }
+
   async releasePokemon(input: PokemonChoiceInput): Promise<string> {
     const context = await this.requireActiveBattleContext(input);
     if (typeof context === "string") {
       return context;
+    }
+
+    if (context.data.testBattle) {
+      return "Essa batalha de teste já usa um Pokémon temporário. Use `.atacar`, `.passar` ou `.fugir`.";
     }
 
     const pokemon = await this.resolveTeamPokemon(context.user.id, input.query);
@@ -369,6 +556,10 @@ export class BattleService {
     const context = await this.requireActiveBattleContext(input);
     if (typeof context === "string") {
       return context;
+    }
+
+    if (context.data.testBattle) {
+      return "Não é possível trocar Pokémon em uma batalha de teste temporária.";
     }
 
     if (context.data.turnSide !== null && context.data.turnSide !== context.side) {
@@ -599,7 +790,7 @@ export class BattleService {
     }
 
     const npcMove = pickNpcMove(npc, player);
-    lines.push(`${npc.speciesName} selvagem reagiu.`);
+    lines.push(`${npc.speciesName} ${data.mode === "WILD" ? "selvagem" : "do NPC"} reagiu.`);
     if (this.canActThroughStatus(data, npcSide, lines)) {
       this.resolveMove(data, npcSide, actingSide, npcMove, lines);
     }
@@ -859,7 +1050,7 @@ export class BattleService {
     const state = forcedState ?? (data.winnerSide ? BattleState.FINISHED : BattleState.ACTIVE);
     await this.persistHp(data, state);
 
-    const rewardLines = await this.applyBattleRewards(data, state);
+    const rewardLines = await this.rewards.apply(data, state);
     if (rewardLines.length > 0) {
       data.log = appendLog(data, rewardLines);
     }
@@ -872,6 +1063,9 @@ export class BattleService {
         data: toJson(data)
       }
     });
+    if (state !== BattleState.ACTIVE) {
+      await this.cleanupTemporaryBattle(battleId, data);
+    }
     return rewardLines;
   }
 
@@ -912,101 +1106,6 @@ export class BattleService {
         data: { state: data.winnerSide === 1 ? EncounterState.DEFEATED : EncounterState.IGNORED }
       });
     }
-  }
-
-  private async applyBattleRewards(data: NarrativeBattleData, state: BattleState): Promise<string[]> {
-    if (
-      state !== BattleState.FINISHED ||
-      data.rewardsApplied ||
-      data.mode === "PVP" ||
-      data.winnerSide !== 1
-    ) {
-      return [];
-    }
-
-    const winner = data.activeBySide["1"];
-    const defeated = data.activeBySide["2"];
-    if (!winner?.pokemonId || !defeated) {
-      return [];
-    }
-
-    const pokemon = await this.prisma.playerPokemon.findUnique({
-      where: { id: winner.pokemonId },
-      include: { species: true, user: true }
-    });
-    const defeatedSpecies = await this.prisma.pokemonSpecies.findUnique({ where: { id: defeated.speciesId } });
-    if (!pokemon || !defeatedSpecies) {
-      return [];
-    }
-
-    const xpGained = calculateXpReward(defeated.level, defeatedSpecies);
-    const coinsGained = calculateCoinReward(defeated.level, defeatedSpecies);
-    const evResult = addEvYield(readStatTable(pokemon.evs), readStatTable(defeatedSpecies.evYield));
-    const levelResult = applyXpGain(pokemon.level, pokemon.xp, xpGained);
-    const evolutionRule = readLevelEvolutions(pokemon.species.evolutions)
-      .filter((rule) => rule.level > pokemon.level && rule.level <= levelResult.level)
-      .sort((a, b) => a.level - b.level)[0];
-    const evolvedSpecies = evolutionRule
-      ? await this.prisma.pokemonSpecies.findUnique({ where: { slug: evolutionRule.to } })
-      : null;
-    const finalSpecies = evolvedSpecies ?? pokemon.species;
-    const moveResult = learnMoves(pokemon.moves, finalSpecies.levelUpMoves, pokemon.level, levelResult.level);
-    const nextMaxHp = calculateHp(
-      readStatTable(finalSpecies.baseStats),
-      readStatTable(pokemon.ivs),
-      evResult.nextEvs,
-      levelResult.level
-    );
-    const hpGain = Math.max(0, nextMaxHp - pokemon.maxHp);
-    const nextCurrentHp = Math.min(nextMaxHp, pokemon.currentHp + hpGain);
-
-    await this.prisma.$transaction([
-      this.prisma.playerPokemon.update({
-        where: { id: pokemon.id },
-        data: {
-          speciesId: finalSpecies.id,
-          xp: levelResult.remainingXp,
-          level: levelResult.level,
-          evs: toJson(evResult.nextEvs),
-          moves: moveResult.nextMoves,
-          maxHp: nextMaxHp,
-          currentHp: nextCurrentHp
-        }
-      }),
-      this.prisma.user.update({
-        where: { id: pokemon.userId },
-        data: { coins: { increment: coinsGained } }
-      })
-    ]);
-
-    winner.speciesId = finalSpecies.id;
-    winner.speciesName = pokemon.nickname ?? finalSpecies.name;
-    winner.level = levelResult.level;
-    winner.types = finalSpecies.types;
-    winner.moves = moveResult.nextMoves;
-    winner.currentHp = nextCurrentHp;
-    winner.maxHp = nextMaxHp;
-    winner.stats = calculateStats(finalSpecies, levelResult.level, pokemon.ivs, evResult.nextEvs, nextMaxHp);
-    winner.spriteUrl = pokemon.shiny ? finalSpecies.shinySpriteUrl ?? finalSpecies.spriteUrl : finalSpecies.spriteUrl;
-
-    const summary: BattleRewardSummary = {
-      pokemonId: pokemon.id,
-      pokemonName: pokemon.nickname ?? pokemon.species.name,
-      defeatedSpeciesName: defeatedSpecies.name,
-      xpGained,
-      coinsGained,
-      levelBefore: pokemon.level,
-      levelAfter: levelResult.level,
-      evsGained: evResult.gainedEvs,
-      movesLearned: moveResult.learnedMoves,
-      ...(evolvedSpecies && evolutionRule
-        ? { evolution: { from: pokemon.species.name, to: evolvedSpecies.name, level: evolutionRule.level } }
-        : {})
-    };
-
-    data.rewardsApplied = true;
-    data.rewardSummary = summary;
-    return formatRewardLines(summary);
   }
 
   private withPrompt(battle: BattleWithParticipants, data: NarrativeBattleData, lines: string[]): string {
@@ -1062,6 +1161,66 @@ export class BattleService {
       },
       include: { participants: { include: { user: true } } },
       orderBy: { updatedAt: "desc" }
+    });
+  }
+
+  private async findBattleForUserId(userId: string, states: BattleState[]): Promise<BattleWithParticipants | null> {
+    return this.prisma.battle.findFirst({
+      where: {
+        state: { in: states },
+        participants: { some: { userId } }
+      },
+      include: { participants: { include: { user: true } } },
+      orderBy: { updatedAt: "desc" }
+    });
+  }
+
+  private async cancelBattleRecord(battle: BattleWithParticipants, reason: string): Promise<void> {
+    const data = readBattleData(battle.data);
+    if (data) {
+      data.turnSide = null;
+      data.log = appendLog(data, reason);
+    }
+
+    await this.prisma.battle.update({
+      where: { id: battle.id },
+      data: {
+        state: BattleState.CANCELLED,
+        data: data ? toJson(data) : undefined
+      }
+    });
+
+    if (data?.encounterId) {
+      await this.prisma.encounter.update({
+        where: { id: data.encounterId },
+        data: { state: EncounterState.IGNORED }
+      });
+    }
+
+    if (data) {
+      await this.cleanupTemporaryBattle(battle.id, data);
+    }
+  }
+
+  private async cleanupTemporaryBattle(battleId: string, data: NarrativeBattleData): Promise<void> {
+    if (!data.testBattle || data.testBattle.cleanupApplied) {
+      return;
+    }
+
+    if (data.testBattle.temporaryPokemonId) {
+      await this.prisma.playerPokemon.deleteMany({
+        where: { id: data.testBattle.temporaryPokemonId }
+      });
+    }
+
+    await this.prisma.battleParticipant.deleteMany({
+      where: { battleId, type: BattleParticipantType.NPC }
+    });
+
+    data.testBattle.cleanupApplied = true;
+    await this.prisma.battle.update({
+      where: { id: battleId },
+      data: { data: toJson(data) }
     });
   }
 
@@ -1136,6 +1295,27 @@ export class BattleService {
 
     return matches[0] ?? "Não encontrei esse Pokémon na sua equipe.";
   }
+
+  private async pickRandomSpeciesPair(): Promise<{ player: PokemonSpecies; opponent: PokemonSpecies }> {
+    const species = await this.prisma.pokemonSpecies.findMany();
+    if (species.length < 2) {
+      throw new Error("Cadastre pelo menos duas espécies de Pokémon antes de usar a batalha teste.");
+    }
+
+    const firstIndex = randomInt(0, species.length - 1);
+    let secondIndex = randomInt(0, species.length - 1);
+    while (secondIndex === firstIndex) {
+      secondIndex = randomInt(0, species.length - 1);
+    }
+
+    const player = species[firstIndex];
+    const opponent = species[secondIndex];
+    if (!player || !opponent) {
+      throw new Error("Não foi possível sortear os Pokémon da batalha teste.");
+    }
+
+    return { player, opponent };
+  }
 }
 
 function createBattleData(input: {
@@ -1146,6 +1326,7 @@ function createBattleData(input: {
   challengerDiscordId?: string;
   targetDiscordId?: string;
   encounterId?: string;
+  testBattle?: NarrativeBattleData["testBattle"];
 }): NarrativeBattleData {
   return {
     source: "narrative",
@@ -1157,7 +1338,8 @@ function createBattleData(input: {
     log: input.log ?? [],
     ...(input.challengerDiscordId ? { challengerDiscordId: input.challengerDiscordId } : {}),
     ...(input.targetDiscordId ? { targetDiscordId: input.targetDiscordId } : {}),
-    ...(input.encounterId ? { encounterId: input.encounterId } : {})
+    ...(input.encounterId ? { encounterId: input.encounterId } : {}),
+    ...(input.testBattle ? { testBattle: input.testBattle } : {})
   };
 }
 
@@ -1179,6 +1361,32 @@ function readBattleData(raw: unknown): NarrativeBattleData | null {
   hydrateActivePokemon(data.activeBySide["1"]);
   hydrateActivePokemon(data.activeBySide["2"]);
   return data;
+}
+
+function buildBattleView(battle: BattleWithParticipants): BattleView | null {
+  const data = readBattleData(battle.data);
+  if (!data) {
+    return null;
+  }
+
+  return {
+    battleId: battle.id,
+    state: battle.state,
+    mode: data.mode,
+    round: data.round,
+    turnSide: data.turnSide,
+    winnerSide: data.winnerSide,
+    activeBySide: data.activeBySide,
+    participants: battle.participants
+      .map((participant) => ({
+        side: participant.side,
+        discordId: participant.user?.discordId ?? null,
+        username: participant.user?.username ?? null
+      }))
+      .sort((a, b) => a.side - b.side),
+    log: data.log,
+    rewardSummary: data.rewardSummary
+  };
 }
 
 function toJson(data: unknown): Prisma.InputJsonObject {
@@ -1217,6 +1425,28 @@ function buildActiveFromPlayerPokemon(pokemon: PlayerPokemonWithSpecies): Active
   };
 }
 
+function buildActiveFromGeneratedPokemon(
+  species: PokemonSpecies,
+  generated: GeneratedWildPokemon,
+  pokemonId?: string
+): ActivePokemonState {
+  return {
+    ...(pokemonId ? { pokemonId } : {}),
+    speciesId: species.id,
+    speciesName: species.name,
+    level: generated.level,
+    types: species.types,
+    ability: generated.ability,
+    nature: generated.nature,
+    moves: generated.moves,
+    currentHp: generated.currentHp,
+    maxHp: generated.maxHp,
+    status: generated.status,
+    stats: calculateStats(species, generated.level, generated.ivs, generated.evs, generated.maxHp),
+    spriteUrl: generated.shiny ? species.shinySpriteUrl ?? species.spriteUrl : species.spriteUrl
+  };
+}
+
 function calculateStats(
   species: PokemonSpecies,
   level: number,
@@ -1239,10 +1469,6 @@ function calculateStats(
   }, {} as StatTable);
 }
 
-function calculateHp(baseStats: StatTable, ivs: StatTable, evs: StatTable, level: number): number {
-  return Math.floor(((2 * baseStats.hp + ivs.hp + Math.floor(evs.hp / 4)) * level) / 100) + level + 10;
-}
-
 function readStatTable(raw: unknown): StatTable {
   const source = typeof raw === "object" && raw !== null ? (raw as Partial<Record<StatKey, unknown>>) : {};
   return STAT_KEYS.reduce((stats, key) => {
@@ -1250,165 +1476,6 @@ function readStatTable(raw: unknown): StatTable {
     stats[key] = typeof value === "number" ? value : 0;
     return stats;
   }, {} as StatTable);
-}
-
-function calculateXpReward(defeatedLevel: number, defeatedSpecies: PokemonSpecies): number {
-  const rarityBonus = Math.max(0, Math.floor((255 - defeatedSpecies.baseCatchRate) / 10));
-  return Math.max(25, defeatedLevel * 35 + rarityBonus);
-}
-
-function calculateCoinReward(defeatedLevel: number, defeatedSpecies: PokemonSpecies): number {
-  const rarityBonus = Math.max(0, Math.floor((255 - defeatedSpecies.baseCatchRate) / 20));
-  return Math.max(10, defeatedLevel * 8 + rarityBonus);
-}
-
-function xpForNextLevel(level: number): number {
-  return Math.max(100, level * 100);
-}
-
-function applyXpGain(level: number, xp: number, gainedXp: number): { level: number; remainingXp: number } {
-  let nextLevel = level;
-  let remainingXp = xp + gainedXp;
-
-  while (nextLevel < 100 && remainingXp >= xpForNextLevel(nextLevel)) {
-    remainingXp -= xpForNextLevel(nextLevel);
-    nextLevel += 1;
-  }
-
-  return { level: nextLevel, remainingXp };
-}
-
-function addEvYield(currentEvs: StatTable, evYield: StatTable): { nextEvs: StatTable; gainedEvs: Partial<StatTable> } {
-  const nextEvs = { ...currentEvs };
-  const gainedEvs: Partial<StatTable> = {};
-  let remainingTotal = Math.max(0, 510 - STAT_KEYS.reduce((sum, key) => sum + nextEvs[key], 0));
-
-  for (const key of STAT_KEYS) {
-    if (remainingTotal <= 0) {
-      break;
-    }
-
-    const requestedGain = Math.max(0, Math.floor(evYield[key] ?? 0));
-    const statRoom = Math.max(0, 252 - nextEvs[key]);
-    const gain = Math.min(requestedGain, statRoom, remainingTotal);
-    if (gain <= 0) {
-      continue;
-    }
-
-    nextEvs[key] += gain;
-    gainedEvs[key] = gain;
-    remainingTotal -= gain;
-  }
-
-  return { nextEvs, gainedEvs };
-}
-
-function learnMoves(
-  currentMoves: string[],
-  rawLevelUpMoves: unknown,
-  previousLevel: number,
-  nextLevel: number
-): { nextMoves: string[]; learnedMoves: string[] } {
-  if (nextLevel <= previousLevel) {
-    return { nextMoves: currentMoves, learnedMoves: [] };
-  }
-
-  const learnedMoves = readLevelUpMoves(rawLevelUpMoves)
-    .filter((entry) => entry.level > previousLevel && entry.level <= nextLevel)
-    .sort((a, b) => a.level - b.level)
-    .map((entry) => entry.move)
-    .filter((move, index, moves) => moves.indexOf(move) === index && !currentMoves.includes(move));
-  if (learnedMoves.length === 0) {
-    return { nextMoves: currentMoves, learnedMoves };
-  }
-
-  return {
-    learnedMoves,
-    nextMoves: [...currentMoves, ...learnedMoves].slice(-4)
-  };
-}
-
-function readLevelUpMoves(raw: unknown): LevelUpMove[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  return raw.flatMap((entry) => {
-    if (typeof entry !== "object" || entry === null) {
-      return [];
-    }
-
-    const level = (entry as Record<string, unknown>).level;
-    const move = (entry as Record<string, unknown>).move;
-    return typeof level === "number" && typeof move === "string" ? [{ level, move }] : [];
-  });
-}
-
-function readLevelEvolutions(raw: unknown): Extract<EvolutionRule, { method: "level" }>[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  return raw.flatMap((entry) => {
-    if (typeof entry !== "object" || entry === null) {
-      return [];
-    }
-
-    const source = entry as Record<string, unknown>;
-    return source.method === "level" && typeof source.to === "string" && typeof source.level === "number"
-      ? [{ method: "level", to: source.to, level: source.level }]
-      : [];
-  });
-}
-
-function formatRewardLines(summary: BattleRewardSummary): string[] {
-  const lines = [
-    `Recompensas: ${summary.pokemonName} recebeu ${summary.xpGained} XP e você ganhou ₽ ${summary.coinsGained}.`
-  ];
-  const evLine = formatEvGain(summary.evsGained);
-  if (evLine) {
-    lines.push(`EVs ganhos: ${evLine}.`);
-  }
-
-  if (summary.levelAfter > summary.levelBefore) {
-    lines.push(`${summary.pokemonName} subiu do nível ${summary.levelBefore} para ${summary.levelAfter}.`);
-  }
-
-  if (summary.movesLearned.length > 0) {
-    lines.push(`${summary.pokemonName} aprendeu ${summary.movesLearned.join(", ")}.`);
-  }
-
-  if (summary.evolution) {
-    lines.push(`${summary.evolution.from} evoluiu para ${summary.evolution.to}.`);
-  }
-
-  return lines;
-}
-
-function formatEvGain(evs: Partial<StatTable>): string | null {
-  const parts = STAT_KEYS.flatMap((key) => {
-    const value = evs[key] ?? 0;
-    return value > 0 ? [`+${value} ${statShortLabel(key)}`] : [];
-  });
-
-  return parts.length > 0 ? parts.join(", ") : null;
-}
-
-function statShortLabel(stat: StatKey): string {
-  switch (stat) {
-    case "hp":
-      return "HP";
-    case "attack":
-      return "Atk";
-    case "defense":
-      return "Def";
-    case "specialAttack":
-      return "SpA";
-    case "specialDefense":
-      return "SpD";
-    case "speed":
-      return "Spe";
-  }
 }
 
 function readHealingAmount(raw: unknown): number {
@@ -1475,35 +1542,6 @@ function pickNpcMove(attacker: ActivePokemonState, defender: ActivePokemonState)
       return { moveName, score: move.power * effectiveness + (move.effects?.length ? 5 : 0) };
     })
     .sort((a, b) => b.score - a.score)[0]?.moveName ?? moves[0] ?? "Tackle";
-}
-
-function appendLog(data: NarrativeBattleData, lines: string[] | string): string[] {
-  const nextLines = Array.isArray(lines) ? lines : [lines];
-  return [...data.log, ...nextLines].slice(-MAX_LOG_LINES);
-}
-
-function formatTurnPrompt(battle: BattleWithParticipants, data: NarrativeBattleData): string | null {
-  if (data.turnSide === null) {
-    return data.activeBySide["1"] && data.activeBySide["2"]
-      ? null
-      : "Aguardando Pokémon em campo. Use `.soltar <slot|nome>`.";
-  }
-
-  if (data.mode === "WILD") {
-    return "Sua vez. Use `.atacar <ataque> | <narração opcional>`, `.passar` ou `.fugir`.";
-  }
-
-  const participant = battle.participants.find((entry) => entry.side === data.turnSide);
-  return participant?.user ? `Agora é a vez de <@${participant.user.discordId}>.` : null;
-}
-
-function formatWinnerLine(data: NarrativeBattleData): string {
-  const winner = data.winnerSide ? data.activeBySide[sideKey(data.winnerSide)] : null;
-  return winner ? `${winner.speciesName} venceu a batalha.` : "A batalha terminou.";
-}
-
-function formatHpLine(active: ActivePokemonState): string {
-  return `${active.speciesName}: ${active.currentHp}/${active.maxHp} HP`;
 }
 
 function hasAbility(active: ActivePokemonState, ability: string): boolean {

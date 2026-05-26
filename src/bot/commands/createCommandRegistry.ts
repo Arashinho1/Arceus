@@ -10,6 +10,7 @@ import {
   buildTrainerProfileFromMessage
 } from "../../ui/menu/trainerMenu.js";
 import { buildBattleTestEmbed } from "../../ui/embeds/battleTestEmbed.js";
+import { buildBattlePayload } from "../../ui/embeds/battleEmbed.js";
 
 export function createCommandRegistry(services: AppServices): Map<string, PrefixCommand> {
   const commands: PrefixCommand[] = [
@@ -42,13 +43,104 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
       }
     },
     {
+      name: "batalhar",
+      description: "Inicia modos de batalha narrativa.",
+      async execute(context) {
+        if (context.args[0]?.toLowerCase() === "teste") {
+          await startNarrativeBattleTest(context, 1, `${context.prefix}batalhar teste [nivel]`);
+          return;
+        }
+
+        await context.message.reply(`Uso: ${context.prefix}batalhar teste [nivel]`);
+      }
+    },
+    {
       name: "batalha",
       aliases: ["duelo"],
       description: "Chama outro jogador para uma batalha narrativa.",
-      async execute({ message, services, prefix }) {
+      async execute(context) {
+        const subcommand = context.args[0]?.toLowerCase();
+        if (subcommand === "teste") {
+          await startNarrativeBattleTest(context, 1, `${context.prefix}batalha teste [nivel]`);
+          return;
+        }
+
+        if (subcommand === "status") {
+          const view = await context.services.battle.getActiveBattleView({
+            discordId: context.message.author.id,
+            username: context.message.author.username
+          });
+          if (!view) {
+            await context.message.reply("Você não tem batalha ativa ou desafio pendente.");
+            return;
+          }
+
+          await context.message.reply(await buildBattlePayload(view));
+          return;
+        }
+
+        if (subcommand === "log") {
+          const log = await context.services.battle.getBattleLog({
+            discordId: context.message.author.id,
+            username: context.message.author.username
+          });
+          const view = await context.services.battle.getActiveBattleView({
+            discordId: context.message.author.id,
+            username: context.message.author.username
+          });
+          if (view) {
+            await context.message.reply(await buildBattlePayload(view, log));
+            return;
+          }
+
+          await context.message.reply(log);
+          return;
+        }
+
+        if (subcommand === "cancelar") {
+          await context.message.reply(
+            await context.services.battle.cancelBattle({
+              discordId: context.message.author.id,
+              username: context.message.author.username
+            })
+          );
+          return;
+        }
+
+        if (subcommand === "resetar") {
+          if (!context.message.member?.permissions.has(PermissionFlagsBits.ManageGuild)) {
+            await context.message.reply("Você precisa da permissão Gerenciar Servidor para resetar batalha de outro jogador.");
+            return;
+          }
+
+          const target = context.message.mentions.users.first();
+          if (!target) {
+            await context.message.reply(`Uso: ${context.prefix}batalha resetar @jogador`);
+            return;
+          }
+
+          await context.message.reply(
+            await context.services.battle.resetBattleForUser({
+              targetDiscordId: target.id,
+              moderatorUsername: context.message.author.username
+            })
+          );
+          return;
+        }
+
+        const { message, services, prefix } = context;
         const target = message.mentions.users.first();
         if (!target) {
-          await message.reply(`Uso: ${prefix}batalha @jogador`);
+          await message.reply(
+            [
+              `Uso: ${prefix}batalha @jogador`,
+              `Uso: ${prefix}batalha teste [nivel]`,
+              `Uso: ${prefix}batalha status`,
+              `Uso: ${prefix}batalha log`,
+              `Uso: ${prefix}batalha cancelar`,
+              `Uso: ${prefix}batalha resetar @jogador`
+            ].join("\n")
+          );
           return;
         }
 
@@ -66,12 +158,11 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
       name: "aceitar",
       description: "Aceita um desafio de batalha pendente.",
       async execute({ message, services }) {
-        await message.reply(
-          await services.battle.acceptChallenge({
+        const content = await services.battle.acceptChallenge({
             discordId: message.author.id,
             username: message.author.username
-          })
-        );
+          });
+        await replyBattleResult({ message, services }, content);
       }
     },
     {
@@ -95,13 +186,12 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
           return;
         }
 
-        await message.reply(
-          await services.battle.releasePokemon({
+        const content = await services.battle.releasePokemon({
             discordId: message.author.id,
             username: message.author.username,
             query: rawArgs
-          })
-        );
+          });
+        await replyBattleResult({ message, services }, content);
       }
     },
     {
@@ -114,13 +204,12 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
           return;
         }
 
-        await message.reply(
-          await services.battle.switchPokemon({
+        const content = await services.battle.switchPokemon({
             discordId: message.author.id,
             username: message.author.username,
             query: rawArgs
-          })
-        );
+          });
+        await replyBattleResult({ message, services }, content);
       }
     },
     {
@@ -134,14 +223,13 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
           return;
         }
 
-        await message.reply(
-          await services.battle.attack({
+        const content = await services.battle.attack({
             discordId: message.author.id,
             username: message.author.username,
             moveQuery: parsed.moveQuery,
             narration: parsed.narration
-          })
-        );
+          });
+        await replyBattleResult({ message, services }, content);
       }
     },
     {
@@ -149,24 +237,22 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
       aliases: ["passarturno"],
       description: "Passa o turno na batalha ativa.",
       async execute({ message, services }) {
-        await message.reply(
-          await services.battle.passTurn({
+        const content = await services.battle.passTurn({
             discordId: message.author.id,
             username: message.author.username
-          })
-        );
+          });
+        await replyBattleResult({ message, services }, content);
       }
     },
     {
       name: "fugir",
       description: "Tenta fugir de batalha selvagem ou NPC.",
       async execute({ message, services }) {
-        await message.reply(
-          await services.battle.flee({
+        const content = await services.battle.flee({
             discordId: message.author.id,
             username: message.author.username
-          })
-        );
+          });
+        await replyBattleResult({ message, services }, content);
       }
     },
     {
@@ -392,6 +478,51 @@ export function createCommandRegistry(services: AppServices): Map<string, Prefix
   return registry;
 }
 
+async function startNarrativeBattleTest(
+  context: Parameters<PrefixCommand["execute"]>[0],
+  levelArgIndex: number,
+  usage: string
+): Promise<void> {
+  const parsedLevel = parseOptionalBattleLevel(context.args[levelArgIndex]);
+  if (typeof parsedLevel === "string") {
+    await context.message.reply(`${parsedLevel}\nUso: ${usage}`);
+    return;
+  }
+
+  try {
+    const result = await context.services.battle.startTestBattle({
+      discordId: context.message.author.id,
+      username: context.message.author.username,
+      ...(typeof parsedLevel === "number" ? { level: parsedLevel } : {})
+    });
+    const view = await context.services.battle.getBattleViewById(result.battle.id);
+    await context.message.reply(view ? await buildBattlePayload(view, result.message) : result.message);
+  } catch (error) {
+    await context.message.reply(error instanceof Error ? error.message : "Não foi possível iniciar a batalha teste.");
+  }
+}
+
+async function replyBattleResult(
+  input: Pick<Parameters<PrefixCommand["execute"]>[0], "message" | "services">,
+  content: string
+): Promise<void> {
+  if (content.startsWith("Você não está em uma batalha ativa.")) {
+    await input.message.reply(content);
+    return;
+  }
+
+  const view = await input.services.battle.getLatestBattleView({
+    discordId: input.message.author.id,
+    username: input.message.author.username
+  });
+  if (!view) {
+    await input.message.reply(content);
+    return;
+  }
+
+  await input.message.reply(await buildBattlePayload(view, content));
+}
+
 async function createMap(context: Parameters<PrefixCommand["execute"]>[0]): Promise<void> {
   const raw = context.rawArgs.replace(/^criar\s+/i, "");
   const [channelRaw, name, biome, minRaw, maxRaw, description] = splitPipeArgs(raw);
@@ -469,6 +600,19 @@ function parseBattleTestLevelRange(args: string[]): { minLevel: number; maxLevel
   }
 
   return { minLevel, maxLevel };
+}
+
+function parseOptionalBattleLevel(raw: string | undefined): number | undefined | string {
+  if (!raw) {
+    return undefined;
+  }
+
+  const level = Number(raw);
+  if (!Number.isInteger(level) || level < 1 || level > 100) {
+    return "O nível da batalha teste precisa ser um número inteiro entre 1 e 100.";
+  }
+
+  return level;
 }
 
 function parseAttackInput(rawArgs: string): { moveQuery: string; narration?: string } {

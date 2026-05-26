@@ -24,7 +24,7 @@ export function createServices() {
     spawn: new SpawnService(prisma, pokemonGenerator, spawnPool),
     travel: new TravelService(prisma),
     capture: new CaptureService(prisma),
-    battle: new BattleService(prisma),
+    battle: new BattleService(prisma, pokemonGenerator),
     battleTest: new BattleTestService(prisma, pokemonGenerator)
   };
 }

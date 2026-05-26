@@ -26,6 +26,30 @@ const species = [
     evolutions: [{ to: "ivysaur", method: "level", level: 16 }]
   },
   {
+    dexNumber: 2,
+    slug: "ivysaur",
+    name: "Ivysaur",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/2.png",
+    shinySpriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/2.png",
+    artworkUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/2.png",
+    types: ["GRASS", "POISON"],
+    baseCatchRate: 45,
+    genderRatioFemale: 0.125,
+    abilities: ["Overgrow"],
+    hiddenAbility: "Chlorophyll",
+    baseStats: { hp: 60, attack: 62, defense: 63, specialAttack: 80, specialDefense: 80, speed: 60 },
+    evYield: { specialAttack: 1, specialDefense: 1 },
+    levelUpMoves: [
+      { level: 1, move: "Tackle" },
+      { level: 1, move: "Growl" },
+      { level: 7, move: "Vine Whip" },
+      { level: 9, move: "Leech Seed" },
+      { level: 13, move: "Poison Powder" },
+      { level: 13, move: "Sleep Powder" }
+    ],
+    evolutions: []
+  },
+  {
     dexNumber: 4,
     slug: "charmander",
     name: "Charmander",
@@ -46,6 +70,28 @@ const species = [
       { level: 10, move: "Smokescreen" }
     ],
     evolutions: [{ to: "charmeleon", method: "level", level: 16 }]
+  },
+  {
+    dexNumber: 5,
+    slug: "charmeleon",
+    name: "Charmeleon",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/5.png",
+    shinySpriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/5.png",
+    artworkUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/5.png",
+    types: ["FIRE"],
+    baseCatchRate: 45,
+    genderRatioFemale: 0.125,
+    abilities: ["Blaze"],
+    hiddenAbility: "Solar Power",
+    baseStats: { hp: 58, attack: 64, defense: 58, specialAttack: 80, specialDefense: 65, speed: 80 },
+    evYield: { specialAttack: 1, speed: 1 },
+    levelUpMoves: [
+      { level: 1, move: "Scratch" },
+      { level: 1, move: "Growl" },
+      { level: 7, move: "Ember" },
+      { level: 10, move: "Smokescreen" }
+    ],
+    evolutions: []
   },
   {
     dexNumber: 7,
@@ -70,6 +116,28 @@ const species = [
     evolutions: [{ to: "wartortle", method: "level", level: 16 }]
   },
   {
+    dexNumber: 8,
+    slug: "wartortle",
+    name: "Wartortle",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/8.png",
+    shinySpriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/8.png",
+    artworkUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/8.png",
+    types: ["WATER"],
+    baseCatchRate: 45,
+    genderRatioFemale: 0.125,
+    abilities: ["Torrent"],
+    hiddenAbility: "Rain Dish",
+    baseStats: { hp: 59, attack: 63, defense: 80, specialAttack: 65, specialDefense: 80, speed: 58 },
+    evYield: { defense: 1, specialDefense: 1 },
+    levelUpMoves: [
+      { level: 1, move: "Tackle" },
+      { level: 1, move: "Tail Whip" },
+      { level: 7, move: "Water Gun" },
+      { level: 10, move: "Withdraw" }
+    ],
+    evolutions: []
+  },
+  {
     dexNumber: 16,
     slug: "pidgey",
     name: "Pidgey",
@@ -89,6 +157,28 @@ const species = [
       { level: 9, move: "Gust" }
     ],
     evolutions: [{ to: "pidgeotto", method: "level", level: 18 }]
+  },
+  {
+    dexNumber: 17,
+    slug: "pidgeotto",
+    name: "Pidgeotto",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/17.png",
+    shinySpriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/17.png",
+    artworkUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/17.png",
+    types: ["NORMAL", "FLYING"],
+    baseCatchRate: 120,
+    genderRatioFemale: 0.5,
+    abilities: ["Keen Eye", "Tangled Feet"],
+    hiddenAbility: "Big Pecks",
+    baseStats: { hp: 63, attack: 60, defense: 55, specialAttack: 50, specialDefense: 50, speed: 71 },
+    evYield: { speed: 2 },
+    levelUpMoves: [
+      { level: 1, move: "Tackle" },
+      { level: 5, move: "Sand Attack" },
+      { level: 9, move: "Gust" },
+      { level: 15, move: "Quick Attack" }
+    ],
+    evolutions: []
   },
   {
     dexNumber: 19,
@@ -112,6 +202,27 @@ const species = [
     evolutions: [{ to: "raticate", method: "level", level: 20 }]
   },
   {
+    dexNumber: 20,
+    slug: "raticate",
+    name: "Raticate",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/20.png",
+    shinySpriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/20.png",
+    artworkUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/20.png",
+    types: ["NORMAL"],
+    baseCatchRate: 127,
+    genderRatioFemale: 0.5,
+    abilities: ["Run Away", "Guts"],
+    hiddenAbility: "Hustle",
+    baseStats: { hp: 55, attack: 81, defense: 60, specialAttack: 50, specialDefense: 70, speed: 97 },
+    evYield: { speed: 2 },
+    levelUpMoves: [
+      { level: 1, move: "Tackle" },
+      { level: 1, move: "Tail Whip" },
+      { level: 4, move: "Quick Attack" }
+    ],
+    evolutions: []
+  },
+  {
     dexNumber: 25,
     slug: "pikachu",
     name: "Pikachu",
@@ -132,6 +243,28 @@ const species = [
       { level: 8, move: "Quick Attack" }
     ],
     evolutions: [{ to: "raichu", method: "item", item: "thunder_stone" }]
+  },
+  {
+    dexNumber: 26,
+    slug: "raichu",
+    name: "Raichu",
+    spriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/26.png",
+    shinySpriteUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/26.png",
+    artworkUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/26.png",
+    types: ["ELECTRIC"],
+    baseCatchRate: 75,
+    genderRatioFemale: 0.5,
+    abilities: ["Static"],
+    hiddenAbility: "Lightning Rod",
+    baseStats: { hp: 60, attack: 90, defense: 55, specialAttack: 90, specialDefense: 80, speed: 110 },
+    evYield: { speed: 3 },
+    levelUpMoves: [
+      { level: 1, move: "Thunder Shock" },
+      { level: 1, move: "Tail Whip" },
+      { level: 1, move: "Quick Attack" },
+      { level: 1, move: "Thunder Wave" }
+    ],
+    evolutions: []
   }
 ];
 

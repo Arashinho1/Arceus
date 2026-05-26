@@ -35,7 +35,7 @@ O schema está em `prisma/schema.prisma` e cobre:
 - `PokemonSpecies`: Pokedex base, catch rate, tipos, abilities, base stats, EV yield, moves por level e evolução.
 - `PlayerPokemon`: Pokemon individual do jogador com level, XP, IVs, EVs, nature, ability, moves, HP, status, equipe/box.
 - `GameMap`: canal do Discord registrado como mapa.
-- `MapSpawn`: tabela de spawn por mapa com peso, level min/max, shiny chance, condições e recompensas.
+- `MapSpawn`: tabela de spawn por mapa com peso, level min/max e shiny chance.
 - `Item` e `Inventory`: itens e inventário por jogador.
 - `Encounter`: Pokemon selvagem ativo no canal.
 - `Battle` e `BattleParticipant`: base para batalha narrativa por turnos.
@@ -49,6 +49,8 @@ Implementados no starter:
 - `.ping`
 - `.battletest [nivel]` ou `.battletest [min] [max]`
   - Gera uma batalha aleatória, persiste em `Battle`/`BattleParticipant`, simula turnos locais e mostra um resumo mecânico.
+- `.batalhar teste [nivel]` ou `.batalha teste [nivel]`
+  - Gera uma batalha narrativa jogável contra NPC temporário, com um Pokemon temporário para o jogador e outro para o NPC, ambos no mesmo nível. Não concede XP, moedas ou drops.
 - `.batalha @jogador`
 - `.aceitar` / `.recusar`
 - `.soltar <slot|nome|ref>`
@@ -57,6 +59,10 @@ Implementados no starter:
 - `.passar`
 - `.fugir`
 - `.usar <item> <pokemon>`
+- `.batalha status`
+- `.batalha log`
+- `.batalha cancelar`
+- `.batalha resetar @jogador`
 - `.pokedex` ou `.dex` (aliases de transição: `.pokemon` e `.p`)
   - Sem argumento, mostra a National Dex.
   - Filtros de lista: `.dex kanto`, `.dex johto`, `.dex hoenn`, `.dex sinnoh`, `.dex unova`, `.dex kalos`, `.dex alola`, `.dex galar`, `.dex paldea`.
@@ -198,7 +204,7 @@ Etapa 3, evolução da batalha narrativa:
 
 - Melhorar apresentação visual da batalha.
 - Expandir ataques, status, habilidades e regras de troca.
-- Conceder XP, EVs, moedas e drops ao vencer.
+- Conceder XP e moedas ao vencer. Não há drop de item em batalha.
 
 Etapa 4, progressão:
 
@@ -211,7 +217,7 @@ Etapa 4, progressão:
 Etapa 5, economia e conteúdo:
 
 - Loja.
-- Drops por mapa.
+- Recompensas de dinheiro e EXP por batalha.
 - Eventos temporários.
 - Badges/progresso.
 - Condições especiais de spawn por horário, clima, item equipado ou evento.
@@ -239,14 +245,18 @@ Hoje:
 - `.trocar` consome o turno quando a batalha já está em andamento.
 - `.usar` aplica itens de cura apenas fora de batalha.
 - `.fugir` funciona contra selvagens/NPCs e nunca contra outro jogador.
-- Vitória contra selvagem/NPC aplica recompensas reais: XP, moedas, EVs, level up, golpes aprendidos e evolução por nível quando a espécie de destino está cadastrada.
+- Vitória contra selvagem/NPC aplica recompensas reais: XP e moedas. Level up, golpes aprendidos e evolução por nível acontecem como consequência do XP quando a espécie de destino está cadastrada.
+- `.batalhar teste` cria uma batalha NPC temporária para testar o fluxo real de `.atacar`, `.passar` e `.fugir`; ao finalizar ou cancelar, o Pokemon temporário é removido e nenhuma recompensa é aplicada.
+- `.batalha status`, `.batalha log`, `.batalha cancelar` e `.batalha resetar @jogador` ajudam a recuperar ou acompanhar combates.
+- Respostas de batalha usam card visual gerado com `sharp`, sprites dos Pokémon e barras de HP.
+- O cálculo de recompensa foi separado em `src/services/battle/BattleRewardService.ts`; a narração/log ficou em `src/services/battle/BattleNarrator.ts`.
+- O seed inclui as evoluções diretas já referenciadas no MVP: Ivysaur, Charmeleon, Wartortle, Pidgeotto, Raticate e Raichu.
 
 Próximos passos:
 
 - Catálogo completo de ataques com categoria física/especial/status.
 - Expandir golpes com efeitos secundários, prioridades e mais variações de status.
 - Habilidades automáticas adicionais.
-- Drops de item por mapa/encontro.
 - Recompensas e regras específicas para PvP.
 
 ## Preparação para interface 2D
